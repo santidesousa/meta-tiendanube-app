@@ -10,6 +10,11 @@ export default function LoginPage({ searchParams }) {
         <div className="brand-mark brand-mark-lg">TR</div>
         <h1>Tout Revient</h1>
         <p className="muted" style={{ marginTop: 0 }}>Panel de performance</p>
+        {searchParams?.link === "invalido" && (
+          <div className="alert-note" style={{ marginBottom: 8 }}>
+            Ese link de acceso ya no es válido. Pedile uno nuevo a la agencia.
+          </div>
+        )}
         {authConfigured() ? (
           <LoginForm next={searchParams?.next} />
         ) : (

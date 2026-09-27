@@ -43,7 +43,9 @@ Sin ninguna de las dos configurada, nadie puede entrar.
    Tout Revient: cualquier otra tienda se rechaza).
 4. Tocá **Mostrar valores** y copiá `META_ACCESS_TOKEN`,
    `TIENDANUBE_ACCESS_TOKEN` y `TIENDANUBE_STORE_ID` a Vercel. Redeploy.
-5. Listo: el cliente entra con su contraseña y ve todo, sin conectar nada.
+5. En Conexiones, copiá el **link para tu clienta** y mandáselo: entra
+   directo, sin contraseña y en solo lectura (también puede entrar con
+   `DASHBOARD_PASSWORD`). Para invalidar el link, cambiá esa contraseña.
 
 El token de Meta de usuario vence a los ~60 días (Conexiones avisa). Para
 evitarlo, usá un token de **usuario del sistema** de Business Manager.

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { SESSION_COOKIE, readSessionValue } from "@/lib/session";
 
 // Rutas sin login.
-const PUBLIC = ["/login", "/api/login", "/api/logout"];
+const PUBLIC = ["/login", "/api/login", "/api/logout", "/acceso"];
 
 // Solo la agencia: conectar cuentas y ver tokens.
 const ADMIN_ONLY = ["/api/auth", "/api/admin", "/dashboard/conexiones"];

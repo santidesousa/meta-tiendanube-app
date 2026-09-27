@@ -22,6 +22,8 @@ export default function ConexionesPage() {
   const [tokens, setTokens] = useState(null);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
+  const [clientLink, setClientLink] = useState(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -29,6 +31,7 @@ export default function ConexionesPage() {
     if (params.get("wrong_store"))
       setNotice(`Se rechazó la tienda "${params.get("wrong_store")}": este panel es solo de Tout Revient. Cerrá sesión en Tiendanube, entrá con Tout Revient y volvé a conectar.`);
     fetchJson("/api/admin/connections").then(setStatus).catch((e) => setError(e.message));
+    fetchJson("/api/admin/client-link").then((d) => setClientLink(d.url)).catch(() => {});
   }, []);
 
   async function revealTokens() {
@@ -57,6 +60,46 @@ export default function ConexionesPage() {
       </div>
 
       {notice && <div className="card insight-banner">{notice}</div>}
+
+      {status && (meta.source !== "env" || tn.source !== "env") && (
+        <div className="card kpi-warning">
+          <strong>Tu clienta todavía no ve los datos.</strong>
+          <div className="small" style={{ marginTop: 4 }}>
+            {meta.source === "cookie" || tn.source === "cookie"
+              ? "Lo que conectaste quedó guardado solo en este navegador. "
+              : ""}
+            Para que cualquiera con el link vea la información, seguí los pasos de “Dejar el panel conectado para
+            todos” (más abajo): copiar los valores a Vercel y hacer Redeploy.
+          </div>
+        </div>
+      )}
+
+      {clientLink && (
+        <div className="card">
+          <div className="section-head" style={{ marginBottom: 8 }}>
+            <div>
+              <h2>Link para tu clienta</h2>
+              <div className="section-sub">
+                Entra directo al panel, sin contraseña y en modo solo lectura. Tratalo como una contraseña: quien lo
+                tenga puede ver los datos. Para invalidarlo, cambiá DASHBOARD_PASSWORD en Vercel.
+              </div>
+            </div>
+          </div>
+          <div className="env-row">
+            <input className="search-input mono" readOnly value={clientLink} onFocus={(e) => e.target.select()} />
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                navigator.clipboard?.writeText(clientLink);
+                setLinkCopied(true);
+                setTimeout(() => setLinkCopied(false), 1500);
+              }}
+            >
+              {linkCopied ? "¡Copiado!" : "Copiar link"}
+            </button>
+          </div>
+        </div>
+      )}
       {!status && <div className="card skeleton" style={{ height: 200 }} />}
 
       {status && (
