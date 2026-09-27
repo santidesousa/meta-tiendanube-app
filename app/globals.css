@@ -1052,3 +1052,10 @@ table.data-table {
   .table-scroll { overflow: visible !important; max-height: none !important; }
   .chart-tooltip { display: none; }
 }
+
+.env-bulk {
+  background: var(--accent-soft);
+  border-radius: 8px;
+  padding: 0.9rem;
+  margin-top: 0.5rem;
+}

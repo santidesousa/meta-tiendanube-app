@@ -24,6 +24,7 @@ export default function ConexionesPage() {
   const [notice, setNotice] = useState(null);
   const [clientLink, setClientLink] = useState(null);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [envCopied, setEnvCopied] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -174,6 +175,26 @@ export default function ConexionesPage() {
             <button className="btn btn-primary" onClick={revealTokens}>
               Mostrar valores
             </button>
+          )}
+          {tokens && copyable.length > 0 && (
+            <div className="env-bulk">
+              <p className="small" style={{ margin: "0 0 8px" }}>
+                <b>Forma rápida:</b> copiá todo junto y en Vercel → Environment Variables → <b>Add Environment
+                Variable</b>, pegalo en el primer campo <b>Key</b>: Vercel separa las variables solo. Elegí{" "}
+                <b>Production</b>, guardá y hacé <b>Redeploy</b>.
+              </p>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  navigator.clipboard?.writeText(copyable.map(([name, value]) => `${name}=${value}`).join("\n"));
+                  setEnvCopied(true);
+                  setTimeout(() => setEnvCopied(false), 2000);
+                }}
+              >
+                {envCopied ? "¡Copiado! Pegalo en Vercel" : `Copiar las ${copyable.length} variables juntas`}
+              </button>
+              <p className="small muted" style={{ margin: "12px 0 0" }}>O una por una:</p>
+            </div>
           )}
           {tokens && copyable.length === 0 && (
             <p className="muted">No hay nada nuevo para copiar desde este navegador.</p>
