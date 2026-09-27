@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import DateRangePicker, { presetRange } from "../DateRangePicker";
 
 function formatMoney(value, currency = "ARS") {
   return new Intl.NumberFormat("es-AR", {
@@ -11,43 +12,49 @@ function formatMoney(value, currency = "ARS") {
 }
 
 export default function TiendanubePage() {
+  const [range, setRange] = useState({ key: "30d", ...presetRange("30d") });
   const [orders, setOrders] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetch("/api/tiendanube/orders")
+    setOrders(null);
+    fetch(`/api/tiendanube/orders?since=${range.since}&until=${range.until}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.error) setError(data.error);
         else setOrders(data);
       })
       .catch((err) => setError(err.message));
-  }, []);
+  }, [range]);
 
-  if (error) {
-    return (
-      <div>
-        <h1>Tiendanube</h1>
-        <p style={{ color: "var(--danger)" }}>
-          {error === "No conectado con Tiendanube todavia"
-            ? "Todavía no conectaste tu cuenta de Tiendanube."
-            : `Error: ${error}`}
-        </p>
-        <a href="/api/auth/tiendanube" className="btn btn-tiendanube">
-          Conectar cuenta de Tiendanube
-        </a>
-      </div>
-    );
-  }
+  return (
+    <div>
+      <h1>Tiendanube</h1>
+      <DateRangePicker activeKey={range.key} onChange={setRange} />
 
-  if (!orders) {
-    return (
-      <div>
-        <h1>Tiendanube</h1>
+      {error && (
+        <>
+          <p style={{ color: "var(--danger)" }}>
+            {error === "No conectado con Tiendanube todavia"
+              ? "Todavía no conectaste tu cuenta de Tiendanube."
+              : `Error: ${error}`}
+          </p>
+          <a href="/api/auth/tiendanube" className="btn btn-tiendanube">
+            Conectar cuenta de Tiendanube
+          </a>
+        </>
+      )}
+
+      {!error && !orders && (
         <p style={{ color: "var(--muted)" }}>Cargando pedidos...</p>
-      </div>
-    );
-  }
+      )}
+
+      {!error && orders && <TiendanubeContent orders={orders} range={range} />}
+    </div>
+  );
+}
+
+function TiendanubeContent({ orders, range }) {
 
   const paidOrders = orders.filter((o) => o.payment_status === "paid");
   const totalRevenue = paidOrders.reduce(
@@ -86,7 +93,6 @@ export default function TiendanubePage() {
 
   return (
     <div>
-      <h1>Tiendanube</h1>
       <p style={{ color: "var(--muted)", marginTop: 0, fontSize: "0.85rem" }}>
         Últimos {orders.length} pedidos ({pendingCount} pendientes de pago no
         incluidos en los totales)

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import DateRangePicker, { presetRange } from "../DateRangePicker";
 
 // Cuenta publicitaria fija: el cliente solo ve esta cuenta, no el listado
 // completo de cuentas a las que Claude/la agencia tiene acceso.
@@ -14,6 +15,33 @@ function formatMoney(value) {
     currency: "ARS",
     maximumFractionDigits: 0,
   }).format(n);
+}
+
+// Meta reporta las compras bajo distintos action_type segun el evento.
+// Probamos en orden de preferencia y nos quedamos con el primero que
+// tenga datos, para no duplicar el conteo.
+const PURCHASE_ACTION_TYPES = [
+  "omni_purchase",
+  "purchase",
+  "offsite_conversion.fb_pixel_purchase",
+];
+
+function getPurchases(insight) {
+  if (!insight?.actions) return 0;
+  for (const type of PURCHASE_ACTION_TYPES) {
+    const match = insight.actions.find((a) => a.action_type === type);
+    if (match) return parseInt(match.value, 10) || 0;
+  }
+  return 0;
+}
+
+function getPurchaseValue(insight) {
+  if (!insight?.action_values) return 0;
+  for (const type of PURCHASE_ACTION_TYPES) {
+    const match = insight.action_values.find((a) => a.action_type === type);
+    if (match) return parseFloat(match.value) || 0;
+  }
+  return 0;
 }
 
 function StatusBadge({ status }) {
@@ -71,6 +99,7 @@ function sortCampaigns(items) {
 }
 
 export default function MetaPage() {
+  const [range, setRange] = useState({ key: "30d", ...presetRange("30d") });
   const [campaigns, setCampaigns] = useState(null);
   const [campaignFilter, setCampaignFilter] = useState("ALL");
   const [selectedCampaign, setSelectedCampaign] = useState(null);
@@ -88,11 +117,11 @@ export default function MetaPage() {
       .catch((err) => setError(err.message));
   }, []);
 
-  function openCampaign(campaign) {
-    setSelectedCampaign(campaign);
-    setAdFilter("ALL");
+  function fetchAds(campaign, dateRange) {
     setAds(null);
-    fetch(`/api/meta/ads?campaignId=${campaign.id}`)
+    fetch(
+      `/api/meta/ads?campaignId=${campaign.id}&since=${dateRange.since}&until=${dateRange.until}`
+    )
       .then((res) => res.json())
       .then((data) => {
         // Ordena por gasto (mayor a menor) para ver primero lo mas relevante.
@@ -104,6 +133,18 @@ export default function MetaPage() {
         setAds(sorted);
       });
   }
+
+  function openCampaign(campaign) {
+    setSelectedCampaign(campaign);
+    setAdFilter("ALL");
+    fetchAds(campaign, range);
+  }
+
+  // Si cambia el rango de fechas mientras hay una campana abierta, re-consulta.
+  useEffect(() => {
+    if (selectedCampaign) fetchAds(selectedCampaign, range);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [range]);
 
   if (error) {
     return (
@@ -141,6 +182,14 @@ export default function MetaPage() {
         </span>
         {selectedCampaign && <>{" / "}{selectedCampaign.name}</>}
       </div>
+
+      <DateRangePicker activeKey={range.key} onChange={setRange} />
+      {selectedCampaign && (
+        <p style={{ fontSize: 12, color: "var(--muted)", marginTop: -8 }}>
+          Las métricas de los anuncios corresponden a este período. La lista
+          de campañas no cambia con el filtro.
+        </p>
+      )}
 
       {/* Paso 1: campañas */}
       {!selectedCampaign && (
@@ -200,8 +249,12 @@ export default function MetaPage() {
                 const img = ad.creative?.thumbnail_url || ad.creative?.image_url;
                 const spend = parseFloat(insight?.spend || 0);
                 const clicks = parseInt(insight?.clicks || 0, 10);
-                // Alerta: gastando plata pero sin ningun click.
-                const noResults = insight && spend > 0 && clicks === 0;
+                const purchases = getPurchases(insight);
+                const purchaseValue = getPurchaseValue(insight);
+                const cpa = purchases > 0 ? spend / purchases : null;
+                const roas = spend > 0 ? purchaseValue / spend : null;
+                // Alerta: gastando plata pero sin ninguna compra registrada.
+                const noResults = insight && spend > 0 && purchases === 0;
                 return (
                   <div
                     key={ad.id}
@@ -237,20 +290,40 @@ export default function MetaPage() {
                         <StatusBadge status={ad.status} />
                       </div>
                       {insight ? (
-                        <div
-                          className="mono"
-                          style={{
-                            fontSize: 13,
-                            marginTop: 4,
-                            color: noResults ? "var(--danger)" : "var(--success)",
-                            fontWeight: 600,
-                          }}
-                        >
-                          {formatMoney(insight.spend)} gastado · {insight.impressions}{" "}
-                          impresiones · {clicks} clicks · CTR{" "}
-                          {parseFloat(insight.ctr || 0).toFixed(2)}%
-                          {noResults && " · sin clicks todavía"}
-                        </div>
+                        <>
+                          <div
+                            className="mono"
+                            style={{
+                              fontSize: 13,
+                              marginTop: 4,
+                              color: "var(--ink)",
+                            }}
+                          >
+                            {formatMoney(spend)} gastado · {insight.impressions}{" "}
+                            impresiones · {clicks} clicks · CTR{" "}
+                            {parseFloat(insight.ctr || 0).toFixed(2)}%
+                          </div>
+                          <div
+                            className="mono"
+                            style={{
+                              fontSize: 13,
+                              marginTop: 2,
+                              fontWeight: 600,
+                              color: noResults ? "var(--danger)" : "var(--success)",
+                            }}
+                          >
+                            {purchases > 0 ? (
+                              <>
+                                {purchases} {purchases === 1 ? "compra" : "compras"} ·
+                                CPA {formatMoney(cpa)}
+                                {purchaseValue > 0 &&
+                                  ` · ROAS ${roas.toFixed(1)}x (${formatMoney(purchaseValue)})`}
+                              </>
+                            ) : (
+                              "Sin compras todavía en este período"
+                            )}
+                          </div>
+                        </>
                       ) : (
                         <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>
                           Sin datos de métricas en el período.

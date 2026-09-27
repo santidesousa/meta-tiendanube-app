@@ -15,6 +15,9 @@ export async function GET(request) {
 
   const { searchParams } = new URL(request.url);
   const campaignId = searchParams.get("campaignId");
+  const since = searchParams.get("since");
+  const until = searchParams.get("until");
+  const dateRange = since && until ? { since, until } : undefined;
 
   if (!campaignId) {
     return NextResponse.json(
@@ -24,7 +27,7 @@ export async function GET(request) {
   }
 
   try {
-    const data = await getAdsWithDetails(accessToken, campaignId);
+    const data = await getAdsWithDetails(accessToken, campaignId, dateRange);
     return NextResponse.json(data);
   } catch (err) {
     return NextResponse.json({ error: err.message, details: err.details }, { status: 400 });
