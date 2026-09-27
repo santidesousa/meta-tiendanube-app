@@ -12,7 +12,7 @@ export async function GET() {
   }
 
   try {
-    const data = await getOrders(storeId, accessToken, "?per_page=20");
+    const data = await getOrders(storeId, accessToken, "?per_page=100");
     return NextResponse.json(data);
   } catch (err) {
     return NextResponse.json({ error: err.message, details: err.details }, { status: 400 });

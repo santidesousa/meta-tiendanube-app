@@ -1,0 +1,256 @@
+:root {
+  --bg: #f6f6f4;
+  --surface: #ffffff;
+  --ink: #16191c;
+  --muted: #6b7280;
+  --border: #e3e3df;
+  --accent: #2f5d50;
+  --accent-soft: #e7efec;
+  --success: #1f8a5f;
+  --success-soft: #e7f5ee;
+  --warning: #b8791a;
+  --warning-soft: #fbf1de;
+  --danger: #b3261e;
+  --danger-soft: #fbeceb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0 0 0.25rem 0;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+h1 {
+  font-size: 1.5rem;
+}
+
+h2 {
+  font-size: 1.05rem;
+  color: var(--ink);
+}
+
+a {
+  color: var(--accent);
+}
+
+.mono {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Layout --- */
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  background: #14171a;
+  color: #e8e9e7;
+  padding: 1.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.sidebar-brand {
+  font-weight: 700;
+  font-size: 1rem;
+  color: #fff;
+  padding: 0 0.5rem 1.5rem 0.5rem;
+  letter-spacing: -0.01em;
+}
+
+.sidebar-link {
+  display: block;
+  padding: 0.55rem 0.6rem;
+  border-radius: 7px;
+  color: #b9bcb9;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.sidebar-link:hover {
+  background: #1f2327;
+  color: #fff;
+}
+
+.sidebar-link.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.content {
+  flex: 1;
+  padding: 2rem 2.5rem;
+  max-width: 1100px;
+}
+
+/* --- Components --- */
+.kpi-row {
+  display: flex;
+  gap: 1rem;
+  margin: 1.25rem 0 2rem 0;
+  flex-wrap: wrap;
+}
+
+.kpi-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  min-width: 170px;
+  flex: 1;
+}
+
+.kpi-label {
+  color: var(--muted);
+  font-size: 0.78rem;
+  margin-bottom: 0.3rem;
+}
+
+.kpi-value {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 1.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  margin-bottom: 0.65rem;
+}
+
+.card-clickable {
+  cursor: pointer;
+  transition: border-color 0.12s ease;
+}
+
+.card-clickable:hover {
+  border-color: var(--accent);
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 100px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.badge-active {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.badge-paused {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.badge-other {
+  background: #eee;
+  color: var(--muted);
+}
+
+.filter-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.1rem;
+}
+
+.filter-pill {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  padding: 0.4rem 0.85rem;
+  border-radius: 100px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.filter-pill.active {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+
+.breadcrumb {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 1rem;
+}
+
+.breadcrumb-link {
+  color: var(--accent);
+  cursor: pointer;
+  font-weight: 500;
+}
+
+table.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.data-table th {
+  text-align: left;
+  padding: 0.5rem 0.4rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: none;
+}
+
+.data-table td {
+  padding: 0.5rem 0.4rem;
+  border-bottom: 1px solid #f1f1ef;
+}
+
+.empty-state {
+  color: var(--muted);
+  padding: 2rem 0;
+  text-align: center;
+}
+
+.btn {
+  display: inline-block;
+  padding: 0.6rem 1.1rem;
+  border-radius: 7px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: #fff;
+}
+
+.btn-meta {
+  background: #1877f2;
+}
+
+.btn-tiendanube {
+  background: #00838f;
+}

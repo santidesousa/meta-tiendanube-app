@@ -1,3 +1,5 @@
+import "./globals.css";
+
 export const metadata = {
   title: "Meta Ads + Tiendanube",
   description: "Integracion de Meta Marketing API y Tiendanube",
@@ -6,9 +8,14 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="es">
-      <body style={{ fontFamily: "system-ui, sans-serif", padding: "2rem" }}>
-        {children}
-      </body>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;650;700&family=IBM+Plex+Mono:wght@500;600&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body>{children}</body>
     </html>
   );
 }
