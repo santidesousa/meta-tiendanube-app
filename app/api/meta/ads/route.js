@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { getAdsWithDetails } from "@/lib/meta";
+import { getAdsWithDetails, isAllowedCampaign } from "@/lib/meta";
 
 // GET /api/meta/ads?campaignId=120251884316740202&since=2026-09-01&until=2026-09-27
 // Devuelve los anuncios de la campana, con su creatividad (imagen/video,
@@ -27,6 +27,9 @@ export async function GET(request) {
   }
 
   try {
+    if (!(await isAllowedCampaign(accessToken, campaignId))) {
+      return NextResponse.json({ error: "Campana no permitida en este panel" }, { status: 403 });
+    }
     const data = await getAdsWithDetails(accessToken, campaignId, dateRange);
     return NextResponse.json(data);
   } catch (err) {

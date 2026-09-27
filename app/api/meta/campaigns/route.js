@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { getCampaigns } from "@/lib/meta";
+import { ALLOWED_AD_ACCOUNT_ID, getCampaigns } from "@/lib/meta";
 
 // GET /api/meta/campaigns?accountId=act_123456789
 // Devuelve las campañas de la cuenta publicitaria indicada.
@@ -19,6 +19,10 @@ export async function GET(request) {
       { error: "Falta el parametro accountId, ej: ?accountId=act_123456789" },
       { status: 400 }
     );
+  }
+
+  if (accountId !== ALLOWED_AD_ACCOUNT_ID) {
+    return NextResponse.json({ error: "Cuenta publicitaria no permitida en este panel" }, { status: 403 });
   }
 
   try {

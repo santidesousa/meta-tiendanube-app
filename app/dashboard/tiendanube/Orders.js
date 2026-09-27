@@ -9,7 +9,7 @@ import {
   isPending,
   paymentLabel,
 } from "@/lib/tiendanubeMetrics";
-import { ProductThumb } from "./Insights";
+import ProductThumb from "../Thumb";
 import { formatDateTime, formatMoney } from "../format";
 
 const PAGE_SIZE = 25;

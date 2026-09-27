@@ -16,6 +16,7 @@ import {
 import SalesChart from "./SalesChart";
 import { Breakdowns, SalesHeatmap, TopProducts } from "./Insights";
 import { OrdersSection } from "./Orders";
+import Kpi from "../Kpi";
 import { delta, formatDayLabel, formatMoney, formatPercent } from "../format";
 
 async function fetchOrders({ since, until }) {
@@ -268,21 +269,6 @@ function Dashboard({ orders, prevOrders, range }) {
         externalFilters={externalFilters}
         onClearExternal={clearExternal}
       />
-    </div>
-  );
-}
-
-function Kpi({ label, value, change, sub, tone }) {
-  return (
-    <div className={"kpi-card" + (tone ? ` kpi-${tone}` : "")}>
-      <div className="kpi-label">{label}</div>
-      <div className="kpi-value">{value}</div>
-      {change !== null && change !== undefined && (
-        <div className={"kpi-delta " + (change >= 0 ? "up" : "down")}>
-          {change >= 0 ? "▲" : "▼"} {formatPercent(Math.abs(change))}
-        </div>
-      )}
-      {sub && <div className="kpi-sub">{sub}</div>}
     </div>
   );
 }

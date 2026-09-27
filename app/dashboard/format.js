@@ -1,11 +1,15 @@
 const TZ = "America/Argentina/Buenos_Aires";
 
 export function formatMoney(value, currency = "ARS") {
+  const v = value || 0;
+  // Montos chicos (CPC, CPM en USD) con centavos; el resto sin decimales.
+  const digits = v !== 0 && Math.abs(v) < 100 ? 2 : 0;
   return new Intl.NumberFormat("es-AR", {
     style: "currency",
     currency: currency || "ARS",
-    maximumFractionDigits: 0,
-  }).format(value || 0);
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(v);
 }
 
 export function formatPercent(value, digits = 0) {

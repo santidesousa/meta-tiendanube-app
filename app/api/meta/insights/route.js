@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { getCampaignInsights } from "@/lib/meta";
+import { getCampaignInsights, isAllowedCampaign } from "@/lib/meta";
 
 // GET /api/meta/insights?campaignId=120251884316740202&since=2026-09-01&until=2026-09-27
 // Devuelve impresiones, clicks, gasto y CTR de la campana indicada.
@@ -25,6 +25,9 @@ export async function GET(request) {
   }
 
   try {
+    if (!(await isAllowedCampaign(accessToken, campaignId))) {
+      return NextResponse.json({ error: "Campana no permitida en este panel" }, { status: 403 });
+    }
     const data = await getCampaignInsights(accessToken, campaignId, dateRange);
     return NextResponse.json(data);
   } catch (err) {

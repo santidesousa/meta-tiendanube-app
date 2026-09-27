@@ -3,17 +3,7 @@
 import { useState } from "react";
 import { WEEKDAYS_ES } from "@/lib/tiendanubeMetrics";
 import { formatMoney, formatPercent } from "../format";
-
-export function ProductThumb({ src, alt, size = 44 }) {
-  if (!src) {
-    return (
-      <div className="thumb thumb-empty" style={{ width: size, height: size }}>
-        {(alt || "?").slice(0, 1).toUpperCase()}
-      </div>
-    );
-  }
-  return <img className="thumb" src={src} alt={alt} style={{ width: size, height: size }} loading="lazy" />;
-}
+import Thumb from "../Thumb";
 
 /**
  * Ranking de productos con imagen. Click en uno filtra la lista de pedidos
@@ -55,7 +45,7 @@ export function TopProducts({ products, totalRevenue, currency, selectedKey, onS
             onClick={() => onSelect(selectedKey === p.key ? null : p.key)}
           >
             <span className="rank mono">{i + 1}</span>
-            <ProductThumb src={p.image} alt={p.name} />
+            <Thumb src={p.image} alt={p.name} />
             <div className="product-info">
               <div className="product-name">{p.name}</div>
               <div className="bar-track">
