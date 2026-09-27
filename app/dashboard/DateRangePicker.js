@@ -1,7 +1,12 @@
 "use client";
 
+// YYYY-MM-DD en hora local (toISOString usa UTC, y en Argentina despues de
+// las 21hs devolveria el dia siguiente).
 function isoDate(d) {
-  return d.toISOString().slice(0, 10);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 export function presetRange(key) {
@@ -26,18 +31,52 @@ const PRESETS = [
   { key: "month", label: "Este mes" },
 ];
 
-export default function DateRangePicker({ activeKey, onChange }) {
+/**
+ * Selector de rango: atajos rapidos + fechas "desde"/"hasta" manuales.
+ * `value` es { key, since, until }; key === "custom" cuando se eligio a mano.
+ */
+export default function DateRangePicker({ value, onChange }) {
+  const today = isoDate(new Date());
+
+  function setCustom(field, date) {
+    if (!date) return;
+    let { since, until } = { ...value, [field]: date };
+    // Si el usuario invierte las fechas, las acomodamos en vez de romper.
+    if (since > until) [since, until] = [until, since];
+    onChange({ key: "custom", since, until });
+  }
+
   return (
-    <div className="filter-row">
+    <div className="filter-row date-range">
       {PRESETS.map((p) => (
         <div
           key={p.key}
-          className={"filter-pill" + (activeKey === p.key ? " active" : "")}
+          className={"filter-pill" + (value.key === p.key ? " active" : "")}
           onClick={() => onChange({ key: p.key, ...presetRange(p.key) })}
         >
           {p.label}
         </div>
       ))}
+      <div className={"date-inputs" + (value.key === "custom" ? " active" : "")}>
+        <label>
+          Desde
+          <input
+            type="date"
+            value={value.since}
+            max={today}
+            onChange={(e) => setCustom("since", e.target.value)}
+          />
+        </label>
+        <label>
+          Hasta
+          <input
+            type="date"
+            value={value.until}
+            max={today}
+            onChange={(e) => setCustom("until", e.target.value)}
+          />
+        </label>
+      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import DateRangePicker, { presetRange } from "../DateRangePicker";
 
 // Cuenta publicitaria fija: el cliente solo ve esta cuenta, no el listado
@@ -26,22 +26,32 @@ const PURCHASE_ACTION_TYPES = [
   "offsite_conversion.fb_pixel_purchase",
 ];
 
-function getPurchases(insight) {
-  if (!insight?.actions) return 0;
+// Devuelve { count, value } de compras usando un unico action_type: el
+// primero de la lista que aparezca en "actions". El valor ($) se toma del
+// mismo action_type en "action_values" para que conteo y valor coincidan.
+function getPurchaseStats(insight) {
+  const actions = insight?.actions || [];
   for (const type of PURCHASE_ACTION_TYPES) {
-    const match = insight.actions.find((a) => a.action_type === type);
-    if (match) return parseInt(match.value, 10) || 0;
+    const match = actions.find((a) => a.action_type === type);
+    if (!match) continue;
+    const valueMatch = (insight.action_values || []).find(
+      (a) => a.action_type === type
+    );
+    return {
+      count: parseInt(match.value, 10) || 0,
+      value: valueMatch ? parseFloat(valueMatch.value) || 0 : null,
+    };
   }
-  return 0;
+  return { count: 0, value: null };
 }
 
-function getPurchaseValue(insight) {
-  if (!insight?.action_values) return 0;
-  for (const type of PURCHASE_ACTION_TYPES) {
-    const match = insight.action_values.find((a) => a.action_type === type);
-    if (match) return parseFloat(match.value) || 0;
-  }
-  return 0;
+function Metric({ label, value, tone }) {
+  return (
+    <div className="metric">
+      <span className="metric-label">{label}</span>
+      <span className={"metric-value" + (tone ? ` ${tone}` : "")}>{value}</span>
+    </div>
+  );
 }
 
 function StatusBadge({ status }) {
@@ -105,6 +115,7 @@ export default function MetaPage() {
   const [selectedCampaign, setSelectedCampaign] = useState(null);
   const [ads, setAds] = useState(null);
   const [adFilter, setAdFilter] = useState("ALL");
+  const [adsError, setAdsError] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -117,13 +128,23 @@ export default function MetaPage() {
       .catch((err) => setError(err.message));
   }, []);
 
+  const latestAdsRequest = useRef(0);
+
   function fetchAds(campaign, dateRange) {
+    const requestId = ++latestAdsRequest.current;
     setAds(null);
+    setAdsError(null);
     fetch(
       `/api/meta/ads?campaignId=${campaign.id}&since=${dateRange.since}&until=${dateRange.until}`
     )
       .then((res) => res.json())
       .then((data) => {
+        // Si el usuario cambio de rango/campana mientras cargaba, descartamos.
+        if (requestId !== latestAdsRequest.current) return;
+        if (data.error) {
+          setAdsError(data.error);
+          return;
+        }
         // Ordena por gasto (mayor a menor) para ver primero lo mas relevante.
         const sorted = (data.data || []).sort((a, b) => {
           const spendA = parseFloat(a.insights?.data?.[0]?.spend || 0);
@@ -131,6 +152,9 @@ export default function MetaPage() {
           return spendB - spendA;
         });
         setAds(sorted);
+      })
+      .catch((err) => {
+        if (requestId === latestAdsRequest.current) setAdsError(err.message);
       });
   }
 
@@ -183,7 +207,7 @@ export default function MetaPage() {
         {selectedCampaign && <>{" / "}{selectedCampaign.name}</>}
       </div>
 
-      <DateRangePicker activeKey={range.key} onChange={setRange} />
+      <DateRangePicker value={range} onChange={setRange} />
       {selectedCampaign && (
         <p style={{ fontSize: 12, color: "var(--muted)", marginTop: -8 }}>
           Las métricas de los anuncios corresponden a este período. La lista
@@ -236,7 +260,12 @@ export default function MetaPage() {
       {/* Paso 2: anuncios con creatividad, ordenados por gasto */}
       {selectedCampaign && (
         <div>
-          {!ads && <p style={{ color: "var(--muted)" }}>Cargando anuncios...</p>}
+          {adsError && (
+            <p style={{ color: "var(--danger)" }}>Error: {adsError}</p>
+          )}
+          {!ads && !adsError && (
+            <p style={{ color: "var(--muted)" }}>Cargando anuncios...</p>
+          )}
           {ads && (
             <>
               <FilterPills
@@ -249,21 +278,18 @@ export default function MetaPage() {
                 const img = ad.creative?.thumbnail_url || ad.creative?.image_url;
                 const spend = parseFloat(insight?.spend || 0);
                 const clicks = parseInt(insight?.clicks || 0, 10);
-                const purchases = getPurchases(insight);
-                const purchaseValue = getPurchaseValue(insight);
+                const { count: purchases, value: purchaseValue } =
+                  getPurchaseStats(insight);
                 const cpa = purchases > 0 ? spend / purchases : null;
-                const roas = spend > 0 ? purchaseValue / spend : null;
+                const roas =
+                  purchaseValue !== null && spend > 0 ? purchaseValue / spend : null;
                 // Alerta: gastando plata pero sin ninguna compra registrada.
-                const noResults = insight && spend > 0 && purchases === 0;
+                const noResults = spend > 0 && purchases === 0;
                 return (
                   <div
                     key={ad.id}
-                    className="card"
-                    style={{
-                      display: "flex",
-                      gap: "1rem",
-                      borderColor: noResults ? "var(--danger)" : undefined,
-                    }}
+                    className={"card" + (noResults ? " ad-card-alert" : "")}
+                    style={{ display: "flex", gap: "1rem" }}
                   >
                     {img && (
                       <img
@@ -291,38 +317,46 @@ export default function MetaPage() {
                       </div>
                       {insight ? (
                         <>
-                          <div
-                            className="mono"
-                            style={{
-                              fontSize: 13,
-                              marginTop: 4,
-                              color: "var(--ink)",
-                            }}
-                          >
-                            {formatMoney(spend)} gastado · {insight.impressions}{" "}
-                            impresiones · {clicks} clicks · CTR{" "}
-                            {parseFloat(insight.ctr || 0).toFixed(2)}%
-                          </div>
-                          <div
-                            className="mono"
-                            style={{
-                              fontSize: 13,
-                              marginTop: 2,
-                              fontWeight: 600,
-                              color: noResults ? "var(--danger)" : "var(--success)",
-                            }}
-                          >
-                            {purchases > 0 ? (
+                          <div className="metric-grid">
+                            <Metric label="Gasto" value={formatMoney(spend)} />
+                            <Metric
+                              label="Impresiones"
+                              value={parseInt(insight.impressions || 0, 10).toLocaleString("es-AR")}
+                            />
+                            <Metric label="Clicks" value={clicks.toLocaleString("es-AR")} />
+                            <Metric
+                              label="CTR"
+                              value={`${parseFloat(insight.ctr || 0).toFixed(2)}%`}
+                            />
+                            <Metric
+                              label="Ventas"
+                              value={purchases}
+                              tone={noResults ? "bad" : purchases > 0 ? "good" : undefined}
+                            />
+                            <Metric
+                              label="CPA"
+                              value={cpa !== null ? formatMoney(cpa) : "—"}
+                              tone={noResults ? "bad" : undefined}
+                            />
+                            {purchaseValue !== null && (
                               <>
-                                {purchases} {purchases === 1 ? "compra" : "compras"} ·
-                                CPA {formatMoney(cpa)}
-                                {purchaseValue > 0 &&
-                                  ` · ROAS ${roas.toFixed(1)}x (${formatMoney(purchaseValue)})`}
+                                <Metric
+                                  label="Valor compras"
+                                  value={formatMoney(purchaseValue)}
+                                />
+                                <Metric
+                                  label="ROAS"
+                                  value={roas !== null ? `${roas.toFixed(2)}x` : "—"}
+                                  tone={roas !== null && roas >= 1 ? "good" : "bad"}
+                                />
                               </>
-                            ) : (
-                              "Sin compras todavía en este período"
                             )}
                           </div>
+                          {noResults && (
+                            <div className="alert-note">
+                              ⚠ Gastó {formatMoney(spend)} sin ninguna compra en este período
+                            </div>
+                          )}
                         </>
                       ) : (
                         <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>

@@ -11,6 +11,14 @@ function formatMoney(value, currency = "ARS") {
   }).format(value);
 }
 
+// Tiendanube devuelve created_at en UTC; agrupamos por dia en hora argentina
+// para que coincida con el rango elegido.
+function localDay(createdAt) {
+  const d = new Date(createdAt);
+  if (isNaN(d)) return (createdAt || "").slice(0, 10);
+  return d.toLocaleDateString("en-CA", { timeZone: "America/Argentina/Buenos_Aires" });
+}
+
 export default function TiendanubePage() {
   const [range, setRange] = useState({ key: "30d", ...presetRange("30d") });
   const [orders, setOrders] = useState(null);
@@ -30,7 +38,7 @@ export default function TiendanubePage() {
   return (
     <div>
       <h1>Tiendanube</h1>
-      <DateRangePicker activeKey={range.key} onChange={setRange} />
+      <DateRangePicker value={range} onChange={setRange} />
 
       {error && (
         <>
@@ -70,7 +78,7 @@ function TiendanubeContent({ orders, range }) {
   // Ventas por dia
   const byDay = {};
   for (const o of paidOrders) {
-    const day = (o.created_at || "").slice(0, 10);
+    const day = localDay(o.created_at);
     if (!byDay[day]) byDay[day] = { count: 0, total: 0 };
     byDay[day].count += 1;
     byDay[day].total += parseFloat(o.total || 0);
@@ -94,8 +102,8 @@ function TiendanubeContent({ orders, range }) {
   return (
     <div>
       <p style={{ color: "var(--muted)", marginTop: 0, fontSize: "0.85rem" }}>
-        Últimos {orders.length} pedidos ({pendingCount} pendientes de pago no
-        incluidos en los totales)
+        {orders.length} pedidos del {range.since} al {range.until} (
+        {pendingCount} pendientes de pago no incluidos en los totales)
       </p>
 
       <div className="kpi-row">
