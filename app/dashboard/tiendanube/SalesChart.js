@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { formatMoney, formatDayLabel } from "./format";
+import { formatMoney, formatDayLabel } from "../format";
 
 const METRICS = [
   { key: "revenue", label: "Facturación" },

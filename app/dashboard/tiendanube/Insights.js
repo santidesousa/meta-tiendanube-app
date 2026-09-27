@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { WEEKDAYS_ES } from "@/lib/tiendanubeMetrics";
-import { formatMoney, formatPercent } from "./format";
+import { formatMoney, formatPercent } from "../format";
 
 export function ProductThumb({ src, alt, size = 44 }) {
   if (!src) {

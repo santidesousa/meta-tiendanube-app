@@ -16,12 +16,16 @@ import {
 import SalesChart from "./SalesChart";
 import { Breakdowns, SalesHeatmap, TopProducts } from "./Insights";
 import { OrdersSection } from "./Orders";
-import { delta, formatDayLabel, formatMoney, formatPercent } from "./format";
+import { delta, formatDayLabel, formatMoney, formatPercent } from "../format";
 
 async function fetchOrders({ since, until }) {
   const res = await fetch(`/api/tiendanube/orders?since=${since}&until=${until}`);
   const data = await res.json();
-  if (data.error) throw new Error(data.error);
+  if (data.error) {
+    const err = new Error(data.error);
+    err.code = data.code;
+    throw err;
+  }
   return data;
 }
 
@@ -29,8 +33,17 @@ export default function TiendanubePage() {
   const [range, setRange] = useState({ key: "30d", ...presetRange("30d") });
   const [orders, setOrders] = useState(null);
   const [prevOrders, setPrevOrders] = useState(null);
+  const [store, setStore] = useState(null);
   const [error, setError] = useState(null);
+  const [rejectedStore, setRejectedStore] = useState(null);
   const latestRequest = useRef(0);
+
+  // El callback de OAuth redirige con ?wrong_store=<nombre> si se intento
+  // conectar una tienda que no es Tout Revient.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("wrong_store")) setRejectedStore(params.get("wrong_store"));
+  }, []);
 
   useEffect(() => {
     const requestId = ++latestRequest.current;
@@ -42,29 +55,45 @@ export default function TiendanubePage() {
     fetchOrders(range)
       .then(async (data) => {
         if (requestId !== latestRequest.current) return;
-        setOrders(data);
+        setStore(data.store);
+        setOrders(data.orders);
         const prevData = await prev;
-        if (requestId === latestRequest.current) setPrevOrders(prevData);
+        if (requestId === latestRequest.current) setPrevOrders(prevData?.orders || null);
       })
       .catch((err) => {
-        if (requestId === latestRequest.current) setError(err.message);
+        if (requestId === latestRequest.current) setError(err);
       });
   }, [range]);
 
   return (
     <div>
       <h1>Tiendanube</h1>
+      <p style={{ color: "var(--muted)", marginTop: 0, fontSize: "0.85rem" }}>
+        Tienda: {store ? `${store.name} (#${store.id})` : "Tout Revient"}
+      </p>
       <DateRangePicker value={range} onChange={setRange} />
 
+      {rejectedStore && (
+        <div className="card ad-card-alert">
+          <p style={{ marginTop: 0 }}>
+            <strong>Se rechazó la conexión con "{rejectedStore}".</strong> Este panel es solo de Tout
+            Revient. Cerrá sesión en Tiendanube, entrá con la cuenta de Tout Revient y volvé a conectar.
+          </p>
+        </div>
+      )}
+
       {error && (
-        <div className="card">
+        <div className={"card" + (error.code === "wrong_store" ? " ad-card-alert" : "")}>
           <p style={{ color: "var(--danger)", marginTop: 0 }}>
-            {error === "No conectado con Tiendanube todavia"
+            {error.message === "No conectado con Tiendanube todavia"
               ? "Todavía no conectaste tu cuenta de Tiendanube."
-              : `No pudimos traer los pedidos: ${error}`}
+              : error.code === "wrong_store"
+              ? `${error.message} Cerrá sesión en Tiendanube, entrá con la cuenta de Tout Revient y reconectá.`
+              : `No pudimos traer los pedidos: ${error.message}`}
           </p>
           <a href="/api/auth/tiendanube" className="btn btn-tiendanube">
-            {error === "No conectado con Tiendanube todavia" ? "Conectar" : "Reconectar"} cuenta de Tiendanube
+            {error.message === "No conectado con Tiendanube todavia" ? "Conectar" : "Reconectar"} Tiendanube de
+            Tout Revient
           </a>
         </div>
       )}

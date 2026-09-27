@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { getAllOrders } from "@/lib/tiendanube";
+import { getAllOrders, verifyStore, wrongStoreMessage } from "@/lib/tiendanube";
 
 // Tiendanube devuelve fechas como "2026-09-20T15:04:05+0000"; algunos
 // navegadores (Safari) no parsean el offset sin ":", asi que lo normalizamos.
@@ -89,8 +89,16 @@ export async function GET(request) {
   if (until) filters.created_at_max = `${until}T23:59:59-03:00`;
 
   try {
+    // Chequeo en cada request: una cookie vieja de otra tienda no puede mostrar datos.
+    const { ok, store } = await verifyStore(storeId, accessToken);
+    if (!ok) {
+      return NextResponse.json(
+        { error: wrongStoreMessage(store), code: "wrong_store", store },
+        { status: 403 }
+      );
+    }
     const data = await getAllOrders(storeId, accessToken, filters);
-    return NextResponse.json(data.map(slimOrder));
+    return NextResponse.json({ store, orders: data.map(slimOrder) });
   } catch (err) {
     return NextResponse.json({ error: err.message, details: err.details }, { status: 400 });
   }

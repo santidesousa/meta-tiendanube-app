@@ -10,7 +10,7 @@ import {
   paymentLabel,
 } from "@/lib/tiendanubeMetrics";
 import { ProductThumb } from "./Insights";
-import { formatDateTime, formatMoney } from "./format";
+import { formatDateTime, formatMoney } from "../format";
 
 const PAGE_SIZE = 25;
 

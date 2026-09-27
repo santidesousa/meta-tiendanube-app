@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifyStore } from "@/lib/tiendanube";
 
 // GET /api/auth/tiendanube/callback?code=...&state=...
 export async function GET(request) {
@@ -33,7 +34,24 @@ export async function GET(request) {
 
   // tokenData incluye: access_token, token_type, y user_id (id de la tienda).
   // El token de Tiendanube NO expira, asi que no hace falta refrescarlo.
-  const res = NextResponse.redirect(new URL("/dashboard?connected=tiendanube", process.env.APP_URL));
+
+  // Solo aceptamos la tienda de Tout Revient: si se autorizo otra (por estar
+  // logueado en otro cliente), no guardamos nada y avisamos.
+  let check;
+  try {
+    check = await verifyStore(tokenData.user_id, tokenData.access_token);
+  } catch (err) {
+    return NextResponse.json({ error: "No se pudo verificar la tienda", details: err.details }, { status: 400 });
+  }
+  if (!check.ok) {
+    const url = new URL("/dashboard/tiendanube", process.env.APP_URL);
+    url.searchParams.set("wrong_store", check.store.name || check.store.id);
+    const res = NextResponse.redirect(url);
+    res.cookies.delete("tiendanube_oauth_state");
+    return res;
+  }
+
+  const res = NextResponse.redirect(new URL("/dashboard/tiendanube?connected=1", process.env.APP_URL));
   res.cookies.delete("tiendanube_oauth_state");
   res.cookies.set("tiendanube_access_token", tokenData.access_token, {
     httpOnly: true,
