@@ -16,6 +16,20 @@ export default async function Dashboard() {
         <code>/api/meta/ad-accounts</code> desde el cliente (fetch con
         credenciales) para listar las cuentas publicitarias y sus campanas.
       </p>
+      <a
+        href="/api/auth/tiendanube"
+        style={{
+          display: "inline-block",
+          background: "#00BCD4",
+          color: "white",
+          padding: "10px 18px",
+          borderRadius: 6,
+          textDecoration: "none",
+          marginTop: "1rem",
+        }}
+      >
+        Conectar cuenta de Tiendanube
+      </a>
     </main>
   );
 }
