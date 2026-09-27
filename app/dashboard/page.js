@@ -10,26 +10,39 @@ async function getAdAccounts() {
 export default async function Dashboard() {
   return (
     <main>
-      <h1>Dashboard</h1>
-      <p>
-        Cuenta de Meta conectada. Este es un placeholder: llama a{" "}
-        <code>/api/meta/ad-accounts</code> desde el cliente (fetch con
-        credenciales) para listar las cuentas publicitarias y sus campanas.
+      <h1>Home</h1>
+      <p style={{ color: "#666" }}>
+        Resumen general (próximamente: insights cruzados de Tiendanube y Meta
+        Ads). Por ahora, conectá tus cuentas si todavía no lo hiciste.
       </p>
-      <a
-        href="/api/auth/tiendanube"
-        style={{
-          display: "inline-block",
-          background: "#00BCD4",
-          color: "white",
-          padding: "10px 18px",
-          borderRadius: 6,
-          textDecoration: "none",
-          marginTop: "1rem",
-        }}
-      >
-        Conectar cuenta de Tiendanube
-      </a>
+      <div style={{ display: "flex", gap: "1rem", marginTop: "1.5rem" }}>
+        <a
+          href="/api/auth/meta"
+          style={{
+            display: "inline-block",
+            background: "#1877F2",
+            color: "white",
+            padding: "10px 18px",
+            borderRadius: 6,
+            textDecoration: "none",
+          }}
+        >
+          Conectar cuenta de Meta Ads
+        </a>
+        <a
+          href="/api/auth/tiendanube"
+          style={{
+            display: "inline-block",
+            background: "#00BCD4",
+            color: "white",
+            padding: "10px 18px",
+            borderRadius: 6,
+            textDecoration: "none",
+          }}
+        >
+          Conectar cuenta de Tiendanube
+        </a>
+      </div>
     </main>
   );
 }
