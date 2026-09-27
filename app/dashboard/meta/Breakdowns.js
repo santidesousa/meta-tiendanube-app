@@ -31,7 +31,7 @@ export default function Breakdowns({ range, currency }) {
       .then((r) => r.json())
       .then((data) => {
         if (cancelled) return;
-        setCache((c) => ({ ...c, [cacheKey]: data.error ? { error: data.error } : { rows: data } }));
+        setCache((c) => ({ ...c, [cacheKey]: data.error ? { error: data.error } : { rows: data.rows } }));
       })
       .catch((err) => !cancelled && setCache((c) => ({ ...c, [cacheKey]: { error: err.message } })));
     return () => {

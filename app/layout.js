@@ -1,8 +1,15 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Meta Ads + Tiendanube",
-  description: "Integracion de Meta Marketing API y Tiendanube",
+  title: "Tout Revient · Performance",
+  description: "Ventas de Tiendanube e inversión en Meta Ads de Tout Revient",
+  robots: { index: false, follow: false },
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#14171a",
 };
 
 export default function RootLayout({ children }) {

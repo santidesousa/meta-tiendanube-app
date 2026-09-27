@@ -11,6 +11,7 @@ import {
 } from "@/lib/tiendanubeMetrics";
 import ProductThumb from "../Thumb";
 import { formatDateTime, formatMoney } from "../format";
+import { CsvButton, downloadCsv } from "../csv";
 
 const PAGE_SIZE = 25;
 
@@ -57,7 +58,7 @@ function matchesSearch(o, q) {
  * Lista de pedidos. `externalFilters` son los filtros que vienen de otras
  * secciones (dia del grafico, producto del ranking) y se muestran como chips.
  */
-export function OrdersSection({ orders, currency, externalFilters, onClearExternal }) {
+export function OrdersSection({ orders, currency, range, externalFilters, onClearExternal }) {
   const [status, setStatus] = useState("ALL");
   const [query, setQuery] = useState("");
   const [limit, setLimit] = useState(PAGE_SIZE);
@@ -74,6 +75,27 @@ export function OrdersSection({ orders, currency, externalFilters, onClearExtern
   const visible = filtered.slice(0, limit);
   const filteredTotal = filtered.filter(isPaid).reduce((s, o) => s + o.total, 0);
 
+  function exportCsv() {
+    downloadCsv(`pedidos-${range?.since}-${range?.until}`, [
+      { label: "Pedido", value: (o) => o.number },
+      { label: "Fecha", value: (o) => formatDateTime(o.created_at) },
+      { label: "Cliente", value: (o) => o.customer.name },
+      { label: "Email", value: (o) => o.customer.email },
+      { label: "Provincia", value: (o) => o.address?.province },
+      { label: "Ciudad", value: (o) => o.address?.city },
+      { label: "Productos", value: (o) => o.products.map((p) => `${p.quantity}x ${p.full_name}`).join(", ") },
+      { label: "Unidades", value: (o) => o.products.reduce((s, p) => s + p.quantity, 0) },
+      { label: "Subtotal", value: (o) => o.subtotal },
+      { label: "Descuento", value: (o) => o.discount },
+      { label: "Envío", value: (o) => o.shipping_cost },
+      { label: "Total", value: (o) => o.total },
+      { label: "Cupón", value: (o) => o.coupons.join(", ") },
+      { label: "Medio de pago", value: (o) => paymentLabel(o) },
+      { label: "Estado de pago", value: (o) => (o.status === "cancelled" ? "cancelado" : o.payment_status) },
+      { label: "Estado de envío", value: (o) => o.shipping_status },
+    ], filtered);
+  }
+
   return (
     <div className="card" id="pedidos">
       <div className="section-head">
@@ -84,13 +106,16 @@ export function OrdersSection({ orders, currency, externalFilters, onClearExtern
             para ver el detalle
           </div>
         </div>
-        <input
-          className="search-input"
-          type="search"
-          placeholder="Buscar cliente, #pedido, producto, ciudad…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
+        <div className="section-tools no-print">
+          <input
+            className="search-input"
+            type="search"
+            placeholder="Buscar cliente, #pedido, producto, ciudad…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <CsvButton onClick={exportCsv} />
+        </div>
       </div>
 
       <div className="filter-row" style={{ flexWrap: "wrap" }}>
@@ -116,10 +141,10 @@ export function OrdersSection({ orders, currency, externalFilters, onClearExtern
             <tr>
               <th>Pedido</th>
               <th>Cliente</th>
-              <th>Productos</th>
+              <th className="hide-mobile">Productos</th>
               <th style={{ textAlign: "right" }}>Total</th>
               <th>Pago</th>
-              <th>Envío</th>
+              <th className="hide-mobile">Envío</th>
             </tr>
           </thead>
           <tbody>
@@ -137,7 +162,7 @@ export function OrdersSection({ orders, currency, externalFilters, onClearExtern
                       {[o.address?.city, o.address?.province].filter(Boolean).join(", ")}
                     </div>
                   </td>
-                  <td>
+                  <td className="hide-mobile">
                     <div className="thumb-stack">
                       {o.products.slice(0, 3).map((p, i) => (
                         <ProductThumb key={i} src={p.image} alt={p.name} size={34} />
@@ -155,7 +180,7 @@ export function OrdersSection({ orders, currency, externalFilters, onClearExtern
                   <td>
                     <PaymentBadge order={o} />
                   </td>
-                  <td>
+                  <td className="hide-mobile">
                     <ShippingBadge order={o} />
                   </td>
                 </tr>

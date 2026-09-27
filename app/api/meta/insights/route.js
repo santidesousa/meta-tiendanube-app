@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { getMetaCredentials } from "@/lib/credentials";
 import { getCampaignInsights, isAllowedCampaign } from "@/lib/meta";
 
 // GET /api/meta/insights?campaignId=120251884316740202&since=2026-09-01&until=2026-09-27
 // Devuelve impresiones, clicks, gasto y CTR de la campana indicada.
 export async function GET(request) {
-  const accessToken = cookies().get("meta_access_token")?.value;
+  const accessToken = getMetaCredentials()?.token;
 
   if (!accessToken) {
     return NextResponse.json({ error: "No conectado con Meta todavia" }, { status: 401 });

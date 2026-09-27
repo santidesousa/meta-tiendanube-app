@@ -1,93 +1,72 @@
-# Meta Ads + Tiendanube — proyecto base
+# Tout Revient · Panel de performance
 
-App Next.js con el flujo OAuth de Meta (Facebook Marketing API) ya armado.
-La parte de Tiendanube queda como carpeta preparada (`app/api/auth/tiendanube/`)
-para el siguiente paso.
+Dashboard en Next.js que cruza las ventas de **Tiendanube** con la inversión
+en **Meta Ads** de Tout Revient. Deploy automático en Vercel al hacer push a
+`main`.
 
-## 1. Crear la app en Meta for Developers
+## Secciones
 
-1. Andá a https://developers.facebook.com/apps y creá una app de tipo
-   **"Business"**.
-2. En **Configuración básica**, copiá el **App ID** y el **App Secret**.
-3. Agregá el producto **"Facebook Login"** (o "Facebook Login for Business"
-   si vas a gestionar cuentas de clientes/agencia).
-4. En Facebook Login > Configuración, agregá en **"Valid OAuth Redirect URIs"**:
-   - `http://localhost:3000/api/auth/meta/callback` (desarrollo)
-   - `https://tu-dominio.com/api/auth/meta/callback` (produccion)
-5. Agregá también el producto **"Marketing API"**.
+- **Resumen**: facturación, inversión, ROAS real, ganancia después de
+  publicidad (con margen configurable), costo por cliente nuevo, gráfico
+  facturación vs. inversión y alertas automáticas ("Qué mirar").
+- **Tiendanube**: KPIs con comparación vs. período anterior, ventas por día,
+  productos más vendidos con stock, desgloses, horarios de compra, carritos
+  abandonados y pedidos con detalle.
+- **Meta Ads**: KPIs, evolución diaria, embudo, desgloses por
+  edad/plataforma/región/hora, campañas y creatividades (con alertas de
+  anuncios sin ventas y de fatiga).
+- **Conexiones** (solo agencia): estado de las conexiones, vencimiento del
+  token de Meta y valores para copiar a Vercel.
 
-## 2. Permisos (scopes)
+Todas las páginas: rango de fechas en la URL (links compartibles),
+exportación a CSV, descarga en PDF (imprimir → guardar como PDF) y versión
+para celular.
 
-Para leer y gestionar campañas necesitás como mínimo:
-- `ads_management` — crear/editar campañas
-- `ads_read` — solo lectura de métricas
-- `business_management` — si el usuario opera a través de un Business Manager
+## Acceso
 
-**Importante:** `ads_management` y `ads_read` requieren que Meta apruebe tu
-app en **App Review** antes de poder usarlos con usuarios que no sean
-administradores/testers de tu propia app. Mientras la app está en modo
-desarrollo, funciona sin revisión para tu propia cuenta y las que agregues
-como "Testers" en Roles de la app.
+El panel pide contraseña (`middleware.js`):
 
-## 3. Configurar variables de entorno
+| Rol     | Variable             | Puede                                   |
+|---------|----------------------|-----------------------------------------|
+| Agencia | `ADMIN_PASSWORD`     | Ver todo, conectar cuentas, Conexiones  |
+| Cliente | `DASHBOARD_PASSWORD` | Ver los datos (solo lectura)            |
+
+Sin ninguna de las dos configurada, nadie puede entrar.
+
+## Puesta en marcha
+
+1. En Vercel → Settings → Environment Variables, cargá las variables de
+   `.env.local.example` (como mínimo las contraseñas y las de las apps de
+   Meta y Tiendanube). Volvé a deployar.
+2. Entrá con la contraseña de agencia y andá a **Conexiones**.
+3. Conectá Meta y Tiendanube (en Tiendanube, logueado con la cuenta de
+   Tout Revient: cualquier otra tienda se rechaza).
+4. Tocá **Mostrar valores** y copiá `META_ACCESS_TOKEN`,
+   `TIENDANUBE_ACCESS_TOKEN` y `TIENDANUBE_STORE_ID` a Vercel. Redeploy.
+5. Listo: el cliente entra con su contraseña y ve todo, sin conectar nada.
+
+El token de Meta de usuario vence a los ~60 días (Conexiones avisa). Para
+evitarlo, usá un token de **usuario del sistema** de Business Manager.
+
+## Datos y caché
+
+Las respuestas de Meta y Tiendanube se cachean 10 minutos en el servidor
+(`lib/cache.js`). El botón **Actualizar** de cada página fuerza datos
+frescos.
+
+## Desarrollo
 
 ```bash
-cp .env.local.example .env.local
-```
-
-Completá `META_APP_ID`, `META_APP_SECRET` y `META_REDIRECT_URI` con los
-datos del paso 1.
-
-## 4. Instalar y correr
-
-```bash
+cp .env.local.example .env.local   # y completar
 npm install
 npm run dev
 ```
 
-Abrí http://localhost:3000 y hacé click en "Conectar cuenta de Meta Ads".
+Estructura principal:
 
-## 5. Cómo funciona el flujo
-
-1. `/api/auth/meta` redirige al usuario a la pantalla de login/permisos de
-   Facebook.
-2. El usuario acepta, Facebook redirige a `/api/auth/meta/callback?code=...`.
-3. El callback intercambia el `code` por un access token, lo extiende a
-   larga duración (~60 días) y lo guarda en una cookie `httpOnly`.
-4. `lib/meta.js` tiene funciones listas para llamar a la Marketing API:
-   `getAdAccounts`, `getCampaigns`, `getCampaignInsights`.
-5. `/api/meta/ad-accounts` es un endpoint de ejemplo que usa esas funciones.
-
-## 6. Siguientes pasos sugeridos
-
-- **Base de datos**: reemplazar la cookie por almacenamiento del token
-  cifrado en una DB (Postgres, etc.), asociado al usuario logueado.
-- **Refresh de token**: los tokens de larga duración duran ~60 días; hay
-  que renovarlos antes de que expiren.
-- **Tiendanube**: el flujo es análogo (OAuth2). Cuando quieras armarlo,
-  necesitás:
-  - Crear una app en https://www.tiendanube.com/partners
-  - `TIENDANUBE_CLIENT_ID` / `TIENDANUBE_CLIENT_SECRET`
-  - El endpoint de autorización es `https://www.tiendanube.com/apps/<client_id>/authorize`
-  - El intercambio de code por token va a `https://www.tiendanube.com/apps/authorize/token`
-- **Seguridad**: nunca expongas `META_APP_SECRET` ni los access tokens al
-  cliente (frontend). Todo el manejo de tokens debe quedar en el servidor
-  (API routes), como está armado acá.
-
-## Estructura
-
-```
-app/
-  page.js                          # Landing con boton "Conectar"
-  dashboard/page.js                # Placeholder post-conexion
-  api/
-    auth/
-      meta/route.js                # Inicia OAuth con Meta
-      meta/callback/route.js       # Recibe el code, obtiene el token
-      tiendanube/callback/         # (a completar)
-    meta/
-      ad-accounts/route.js         # Ejemplo: lista cuentas publicitarias
-lib/
-  meta.js                          # Helpers para la Graph/Marketing API
-.env.local.example
-```
+- `lib/` — clientes de las APIs (`meta.js`, `tiendanube.js`), métricas
+  (`metaMetrics.js`, `tiendanubeMetrics.js`), alertas, sesión, caché.
+- `app/api/` — endpoints; `_shared/route-helpers.js` concentra credenciales,
+  validación de rango y la verificación de tienda/cuenta.
+- `app/dashboard/` — páginas y componentes compartidos (`PageHeader`, `Kpi`,
+  `BarChart`, `ComboChart`, `csv.js`).

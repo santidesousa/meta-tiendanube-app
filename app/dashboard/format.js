@@ -46,3 +46,39 @@ export function delta(current, previous) {
   if (previous === null || previous === undefined || previous === 0) return null;
   return (current - previous) / previous;
 }
+
+// Abreviatura propia (el "compact" de Intl cambia entre navegadores: "k",
+// "mil", "mill."...). Millones como "M" y miles como "mil".
+function compact(v) {
+  const abs = Math.abs(v);
+  const fmt = (n) => n.toLocaleString("es-AR", { maximumFractionDigits: 1 });
+  if (abs >= 1e6) return `${fmt(v / 1e6)} M`;
+  if (abs >= 1e4) return `${fmt(v / 1e3)} mil`;
+  return null;
+}
+
+/** "$ 13,1 M" / "$ 341,5 mil": para KPIs grandes que se leen de un vistazo */
+export function formatCompactMoney(value, currency = "ARS") {
+  const v = value || 0;
+  const c = compact(v);
+  if (!c) return formatMoney(v, currency);
+  const symbol = currency === "ARS" || !currency ? "$" : currency;
+  return `${symbol} ${c}`;
+}
+
+export function formatNumber(value) {
+  return Math.round(value || 0).toLocaleString("es-AR");
+}
+
+export function formatCompactNumber(value) {
+  return compact(value || 0) || formatNumber(value);
+}
+
+/** "hace 3 min", "hace 2 h" */
+export function timeAgo(iso) {
+  const minutes = Math.round((Date.now() - new Date(iso)) / 60000);
+  if (!isFinite(minutes)) return "";
+  if (minutes < 1) return "recién";
+  if (minutes < 60) return `hace ${minutes} min`;
+  return `hace ${Math.round(minutes / 60)} h`;
+}

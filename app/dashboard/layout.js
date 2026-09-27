@@ -1,34 +1,20 @@
-"use client";
+import { Suspense } from "react";
+import { cookies } from "next/headers";
+import { SESSION_COOKIE, readSessionValue } from "@/lib/session";
+import Sidebar from "./Sidebar";
+import { RoleProvider } from "./RoleContext";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-
-const links = [
-  { href: "/dashboard", label: "Home" },
-  { href: "/dashboard/tiendanube", label: "Tiendanube" },
-  { href: "/dashboard/meta", label: "Meta Ads" },
-];
-
-export default function DashboardLayout({ children }) {
-  const pathname = usePathname();
+export default async function DashboardLayout({ children }) {
+  const session = await readSessionValue(cookies().get(SESSION_COOKIE)?.value);
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <div className="sidebar-brand">Tout Revient</div>
-        {links.map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            className={
-              "sidebar-link" + (pathname === link.href ? " active" : "")
-            }
-          >
-            {link.label}
-          </Link>
-        ))}
-      </aside>
-      <main className="content">{children}</main>
+      <Suspense fallback={<aside className="sidebar" />}>
+        <Sidebar role={session?.role} agencyName={process.env.NEXT_PUBLIC_AGENCY_NAME || null} />
+      </Suspense>
+      <main className="content">
+        <RoleProvider role={session?.role}>{children}</RoleProvider>
+      </main>
     </div>
   );
 }

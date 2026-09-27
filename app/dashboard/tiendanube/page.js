@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import DateRangePicker, { presetRange } from "../DateRangePicker";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useDateRange } from "../DateRangePicker";
+import PageHeader, { oldest } from "../PageHeader";
 import {
   breakdown,
   computeSummary,
   dailySeries,
+  daysBetween,
   localParts,
   paymentLabel,
   previousRange,
@@ -13,93 +15,97 @@ import {
   topCustomers,
   topProducts,
 } from "@/lib/tiendanubeMetrics";
+import { fetchJson } from "../api";
+import { ConnectionHint } from "../RoleContext";
 import SalesChart from "./SalesChart";
 import { Breakdowns, SalesHeatmap, TopProducts } from "./Insights";
 import { OrdersSection } from "./Orders";
+import AbandonedCarts from "./AbandonedCarts";
 import Kpi from "../Kpi";
-import { delta, formatDayLabel, formatMoney, formatPercent } from "../format";
+import {
+  delta,
+  formatCompactMoney,
+  formatDayLabel,
+  formatMoney,
+  formatNumber,
+  formatPercent,
+} from "../format";
 
-async function fetchOrders({ since, until }) {
-  const res = await fetch(`/api/tiendanube/orders?since=${since}&until=${until}`);
-  const data = await res.json();
-  if (data.error) {
-    const err = new Error(data.error);
-    err.code = data.code;
-    throw err;
-  }
-  return data;
-}
+const NOT_CONNECTED = "No conectado con Tiendanube todavia";
 
 export default function TiendanubePage() {
-  const [range, setRange] = useState({ key: "30d", ...presetRange("30d") });
+  const [range, setRange] = useDateRange();
   const [orders, setOrders] = useState(null);
-  const [prevOrders, setPrevOrders] = useState(null);
   const [store, setStore] = useState(null);
+  const [prevSummary, setPrevSummary] = useState(null);
+  const [abandoned, setAbandoned] = useState(null);
+  const [stock, setStock] = useState(null);
+  const [generatedAt, setGeneratedAt] = useState(null);
   const [error, setError] = useState(null);
-  const [rejectedStore, setRejectedStore] = useState(null);
   const latestRequest = useRef(0);
 
-  // El callback de OAuth redirige con ?wrong_store=<nombre> si se intento
-  // conectar una tienda que no es Tout Revient.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("wrong_store")) setRejectedStore(params.get("wrong_store"));
-  }, []);
+  const load = useCallback(async () => {
+    if (!range) return;
+    const requestId = ++latestRequest.current;
+    const current = () => requestId === latestRequest.current;
+    setOrders(null);
+    setPrevSummary(null);
+    setAbandoned(null);
+    setError(null);
+    const q = (r) => `since=${r.since}&until=${r.until}`;
+
+    // Lo secundario (comparacion, carritos, stock) no bloquea: si falla, la
+    // pagina se muestra igual sin esa parte.
+    const prev = fetchJson(`/api/tiendanube/orders?${q(previousRange(range))}&summary=1`).catch(() => null);
+    fetchJson(`/api/tiendanube/abandoned?${q(range)}`)
+      .then((d) => current() && setAbandoned(d))
+      .catch(() => current() && setAbandoned({ unavailable: true }));
+    fetchJson(`/api/tiendanube/stock`)
+      .then((d) => current() && setStock(d.products))
+      .catch(() => {});
+
+    try {
+      const data = await fetchJson(`/api/tiendanube/orders?${q(range)}`);
+      if (!current()) return;
+      setStore(data.store);
+      setOrders(data.orders);
+      setGeneratedAt(data.generatedAt);
+      const p = await prev;
+      if (current()) setPrevSummary(p?.summary || null);
+    } catch (err) {
+      if (current()) setError(err);
+    }
+  }, [range]);
 
   useEffect(() => {
-    const requestId = ++latestRequest.current;
-    setOrders(null);
-    setPrevOrders(null);
-    setError(null);
-    // El periodo anterior es solo para comparar: si falla, seguimos sin deltas.
-    const prev = fetchOrders(previousRange(range)).catch(() => null);
-    fetchOrders(range)
-      .then(async (data) => {
-        if (requestId !== latestRequest.current) return;
-        setStore(data.store);
-        setOrders(data.orders);
-        const prevData = await prev;
-        if (requestId === latestRequest.current) setPrevOrders(prevData?.orders || null);
-      })
-      .catch((err) => {
-        if (requestId === latestRequest.current) setError(err);
-      });
-  }, [range]);
+    load();
+  }, [load]);
 
   return (
     <div>
-      <h1>Tiendanube</h1>
-      <p style={{ color: "var(--muted)", marginTop: 0, fontSize: "0.85rem" }}>
-        Tienda: {store ? `${store.name} (#${store.id})` : "Tout Revient"}
-      </p>
-      <DateRangePicker value={range} onChange={setRange} />
-
-      {rejectedStore && (
-        <div className="card ad-card-alert">
-          <p style={{ marginTop: 0 }}>
-            <strong>Se rechazó la conexión con "{rejectedStore}".</strong> Este panel es solo de Tout
-            Revient. Cerrá sesión en Tiendanube, entrá con la cuenta de Tout Revient y volvé a conectar.
-          </p>
-        </div>
-      )}
+      <PageHeader
+        title="Tiendanube"
+        subtitle={store ? `Tienda: ${store.name} (#${store.id})` : "Tienda: Tout Revient"}
+        range={range}
+        onRangeChange={setRange}
+        generatedAt={oldest(generatedAt, abandoned?.generatedAt)}
+        onRefresh={load}
+      />
 
       {error && (
         <div className={"card" + (error.code === "wrong_store" ? " ad-card-alert" : "")}>
           <p style={{ color: "var(--danger)", marginTop: 0 }}>
-            {error.message === "No conectado con Tiendanube todavia"
-              ? "Todavía no conectaste tu cuenta de Tiendanube."
+            {error.message === NOT_CONNECTED
+              ? "Tiendanube todavía no está conectado."
               : error.code === "wrong_store"
-              ? `${error.message} Cerrá sesión en Tiendanube, entrá con la cuenta de Tout Revient y reconectá.`
+              ? `${error.message} Hay que reconectar con la cuenta de Tout Revient.`
               : `No pudimos traer los pedidos: ${error.message}`}
           </p>
-          <a href="/api/auth/tiendanube" className="btn btn-tiendanube">
-            {error.message === "No conectado con Tiendanube todavia" ? "Conectar" : "Reconectar"} Tiendanube de
-            Tout Revient
-          </a>
+          <ConnectionHint className="btn btn-tiendanube" />
         </div>
       )}
 
-      {!error && !orders && <LoadingSkeleton />}
+      {!error && range && !orders && <LoadingSkeleton />}
 
       {!error && orders && orders.length === 0 && (
         <div className="card empty-state">
@@ -109,22 +115,22 @@ export default function TiendanubePage() {
       )}
 
       {!error && orders && orders.length > 0 && (
-        <Dashboard orders={orders} prevOrders={prevOrders} range={range} />
+        <Dashboard orders={orders} prev={prevSummary} range={range} abandoned={abandoned} stock={stock} />
       )}
     </div>
   );
 }
 
-function Dashboard({ orders, prevOrders, range }) {
+function Dashboard({ orders, prev, range, abandoned, stock }) {
   const [selectedDay, setSelectedDay] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
 
   const currency = orders[0]?.currency || "ARS";
-  const summary = useMemo(() => computeSummary(orders), [orders]);
-  const prev = useMemo(() => (prevOrders ? computeSummary(prevOrders) : null), [prevOrders]);
+  const summary = useMemo(() => computeSummary(orders, range), [orders, range]);
   const series = useMemo(() => dailySeries(orders, range.since, range.until), [orders, range]);
   const products = useMemo(() => topProducts(orders), [orders]);
   const heatmap = useMemo(() => salesHeatmap(orders), [orders]);
+  const days = daysBetween(range.since, range.until);
   const breakdownTabs = useMemo(
     () => [
       { key: "payment", label: "Medio de pago", rows: breakdown(orders, paymentLabel) },
@@ -189,52 +195,83 @@ function Dashboard({ orders, prevOrders, range }) {
     document.getElementById("pedidos")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  const d = (key) => (prev ? delta(summary[key], prev[key]) : null);
+  const hasNew = summary.newCustomers !== null;
+
   return (
     <div>
-      <div className="kpi-grid">
+      <div className="kpi-hero-row">
         <Kpi
+          hero
           label="Facturación"
-          value={formatMoney(summary.revenue, currency)}
-          change={prev && delta(summary.revenue, prev.revenue)}
+          value={formatCompactMoney(summary.revenue, currency)}
+          title={formatMoney(summary.revenue, currency)}
+          change={d("revenue")}
+          sub={`${formatMoney(summary.revenue / days, currency)} por día`}
         />
         <Kpi
+          hero
           label="Pedidos pagados"
-          value={summary.paidCount}
-          change={prev && delta(summary.paidCount, prev.paidCount)}
-          sub={`${formatPercent(summary.conversionRate)} de los pedidos creados`}
+          value={formatNumber(summary.paidCount)}
+          change={d("paidCount")}
+          sub={`${formatPercent(summary.conversionRate)} de los pedidos creados se pagó`}
         />
         <Kpi
+          hero
           label="Ticket promedio"
           value={formatMoney(summary.avgTicket, currency)}
-          change={prev && delta(summary.avgTicket, prev.avgTicket)}
+          change={d("avgTicket")}
+          sub={`${summary.unitsPerOrder.toFixed(1)} unidades por pedido`}
         />
+      </div>
+
+      <div className="kpi-grid kpi-secondary">
+        <Kpi label="Unidades vendidas" value={formatNumber(summary.units)} change={d("units")} />
+        {hasNew ? (
+          <Kpi
+            label="Clientes nuevos"
+            value={formatNumber(summary.newCustomers)}
+            change={d("newCustomers")}
+            sub={`${summary.customers ? formatPercent(summary.newCustomers / summary.customers) : "—"} de los compradores · ${formatCompactMoney(summary.newCustomersRevenue, currency)}`}
+          />
+        ) : (
+          <Kpi label="Clientes" value={formatNumber(summary.customers)} change={d("customers")} />
+        )}
         <Kpi
-          label="Unidades vendidas"
-          value={summary.units}
-          change={prev && delta(summary.units, prev.units)}
-          sub={`${summary.unitsPerOrder.toFixed(1)} por pedido`}
-        />
-        <Kpi
-          label="Clientes"
-          value={summary.customers}
-          change={prev && delta(summary.customers, prev.customers)}
-          sub={`${summary.repeatCustomers} recompraron`}
+          label="Clientes recurrentes"
+          value={formatNumber(hasNew ? summary.returningCustomers : summary.repeatCustomers)}
+          sub={hasNew ? "Ya habían comprado antes del período" : "Compraron más de una vez en el período"}
         />
         <Kpi
           label="Pendientes de pago"
-          value={formatMoney(summary.pendingAmount, currency)}
-          sub={`${summary.pendingCount} pedidos sin cobrar · ${summary.cancelledCount} cancelados`}
+          value={formatCompactMoney(summary.pendingAmount, currency)}
+          title={formatMoney(summary.pendingAmount, currency)}
+          sub={`${summary.pendingCount} pedidos sin cobrar`}
           tone={summary.pendingCount > 0 ? "warning" : undefined}
         />
+        <Kpi
+          label="Cancelaciones"
+          value={formatPercent(summary.cancelRate, 1)}
+          change={d("cancelRate")}
+          inverse
+          sub={`${summary.cancelledCount} pedidos · ${formatCompactMoney(summary.cancelledAmount, currency)}`}
+          tone={summary.cancelRate > 0.1 ? "danger" : undefined}
+        />
+        {abandoned && !abandoned.unavailable && (
+          <Kpi
+            label="Carritos abandonados"
+            value={formatCompactMoney(abandoned.total, currency)}
+            title={formatMoney(abandoned.total, currency)}
+            sub={`${abandoned.count} carritos sin terminar`}
+            tone={abandoned.total > summary.revenue * 0.2 ? "warning" : undefined}
+          />
+        )}
       </div>
-      {prev && (
-        <div className="section-sub" style={{ marginTop: -18, marginBottom: 20 }}>
-          Variaciones vs. el período anterior ({formatDayLabel(previousRange(range).since)} –{" "}
-          {formatDayLabel(previousRange(range).until)}). Descuentos otorgados:{" "}
-          {formatMoney(summary.discountTotal, currency)} · Envíos cobrados:{" "}
-          {formatMoney(summary.shippingTotal, currency)}
-        </div>
-      )}
+      <div className="section-sub" style={{ marginTop: -10, marginBottom: 20 }}>
+        Descuentos otorgados: {formatMoney(summary.discountTotal, currency)} · Envíos cobrados:{" "}
+        {formatMoney(summary.shippingTotal, currency)}
+        {hasNew && " · Cliente nuevo = su primera compra en la tienda fue en este período."}
+      </div>
 
       <SalesChart
         series={series}
@@ -252,6 +289,8 @@ function Dashboard({ orders, prevOrders, range }) {
           totalRevenue={products.reduce((s, p) => s + p.revenue, 0)}
           currency={currency}
           selectedKey={selectedProduct}
+          stock={stock}
+          days={days}
           onSelect={(key) => {
             setSelectedProduct(key);
             if (key) scrollToOrders();
@@ -263,9 +302,12 @@ function Dashboard({ orders, prevOrders, range }) {
         </div>
       </div>
 
+      {abandoned && <AbandonedCarts data={abandoned} currency={currency} />}
+
       <OrdersSection
         orders={orders}
         currency={currency}
+        range={range}
         externalFilters={externalFilters}
         onClearExternal={clearExternal}
       />
@@ -276,13 +318,17 @@ function Dashboard({ orders, prevOrders, range }) {
 function LoadingSkeleton() {
   return (
     <div>
-      <div className="kpi-grid">
+      <div className="kpi-hero-row">
+        {Array.from({ length: 3 }, (_, i) => (
+          <div key={i} className="kpi-card kpi-hero skeleton" style={{ height: 118 }} />
+        ))}
+      </div>
+      <div className="kpi-grid kpi-secondary">
         {Array.from({ length: 6 }, (_, i) => (
-          <div key={i} className="kpi-card skeleton" style={{ height: 92 }} />
+          <div key={i} className="kpi-card skeleton" style={{ height: 84 }} />
         ))}
       </div>
       <div className="card skeleton" style={{ height: 260 }} />
-      <p style={{ color: "var(--muted)" }}>Cargando pedidos…</p>
     </div>
   );
 }

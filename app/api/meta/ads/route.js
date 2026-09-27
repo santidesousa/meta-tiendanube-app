@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { getMetaCredentials } from "@/lib/credentials";
 import { getAdsWithDetails, isAllowedCampaign } from "@/lib/meta";
 
 // GET /api/meta/ads?campaignId=120251884316740202&since=2026-09-01&until=2026-09-27
@@ -7,7 +7,7 @@ import { getAdsWithDetails, isAllowedCampaign } from "@/lib/meta";
 // titulo, texto, URL de destino) y sus metricas propias (impresiones,
 // clicks, gasto, acciones/conversiones).
 export async function GET(request) {
-  const accessToken = cookies().get("meta_access_token")?.value;
+  const accessToken = getMetaCredentials()?.token;
 
   if (!accessToken) {
     return NextResponse.json({ error: "No conectado con Meta todavia" }, { status: 401 });

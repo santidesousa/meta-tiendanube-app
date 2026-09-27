@@ -45,11 +45,10 @@ export async function GET(request) {
   const longLivedRes = await fetch(longLivedUrl.toString());
   const longLivedData = await longLivedRes.json();
 
-  // ATENCION: esto es solo un ejemplo. En produccion NUNCA guardes el
-  // access_token en una cookie visible al cliente ni en localStorage.
-  // Guardalo cifrado en tu base de datos, asociado al usuario, y
-  // devolvele al cliente solo un ID de sesion.
-  const res = NextResponse.redirect(new URL("/dashboard?connected=meta", process.env.APP_URL));
+  // El token queda en una cookie httpOnly del navegador de la agencia. Para
+  // que el panel funcione para todos, se copia a META_ACCESS_TOKEN en Vercel
+  // desde /dashboard/conexiones (ver lib/credentials.js).
+  const res = NextResponse.redirect(new URL("/dashboard/conexiones?connected=meta", process.env.APP_URL));
   res.cookies.delete("meta_oauth_state");
   res.cookies.set("meta_access_token", longLivedData.access_token || tokenData.access_token, {
     httpOnly: true,

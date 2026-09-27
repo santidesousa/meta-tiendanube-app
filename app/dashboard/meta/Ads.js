@@ -5,6 +5,7 @@ import { formatMoney, formatPercent } from "../format";
 import { StatusBadge } from "./Campaigns";
 import { roasClass } from "./Breakdowns";
 import Funnel from "./Funnel";
+import { CsvButton, downloadCsv } from "../csv";
 
 const SORTS = [
   { key: "spend", label: "Inversión" },
@@ -18,7 +19,27 @@ const FILTERS = [
   { key: "ALL", label: "Todos", test: () => true },
   { key: "SALES", label: "Con ventas", test: (a) => a.m.purchases > 0 },
   { key: "ALERT", label: "Gastan sin vender", test: (a) => a.m.noResults },
+  { key: "FATIGUE", label: "Con fatiga", test: (a) => a.m.fatigue },
 ];
+
+function exportAds(rows) {
+  downloadCsv("anuncios-meta", [
+    { label: "Anuncio", value: (a) => a.name },
+    { label: "Campaña", value: (a) => a.campaignName },
+    { label: "Conjunto", value: (a) => a.adsetName },
+    { label: "Estado", value: (a) => a.status },
+    { label: "Inversión", value: (a) => a.m.spend },
+    { label: "Impresiones", value: (a) => a.m.impressions },
+    { label: "Frecuencia", value: (a) => a.m.frequency },
+    { label: "Clicks enlace", value: (a) => a.m.linkClicks },
+    { label: "CTR", value: (a) => a.m.ctr },
+    { label: "CPC", value: (a) => a.m.cpc },
+    { label: "Compras", value: (a) => a.m.purchases },
+    { label: "CPA", value: (a) => a.m.cpa },
+    { label: "Valor compras", value: (a) => (a.m.hasPurchaseValue ? a.m.purchaseValue : null) },
+    { label: "ROAS", value: (a) => a.m.roas },
+  ], rows);
+}
 
 /**
  * Grilla de creatividades con sus metricas del periodo. `campaignFilter`
@@ -53,12 +74,15 @@ export default function Ads({ ads, currency, campaignFilter, onClearCampaign, op
             {rows.length} anuncios con actividad en el período · click para ver el detalle
           </div>
         </div>
+        <div className="section-tools">
+        <CsvButton onClick={() => exportAds(rows)} />
         <div className="segmented">
           {SORTS.map((s) => (
             <button key={s.key} className={sortKey === s.key ? "active" : ""} onClick={() => setSortKey(s.key)}>
               {s.label}
             </button>
           ))}
+        </div>
         </div>
       </div>
 
@@ -105,6 +129,7 @@ function AdCard({ ad, currency, onClick }) {
       <div className="ad-image">
         {ad.image ? <img src={ad.image} alt={ad.name} loading="lazy" /> : <div className="ad-noimage">Sin imagen</div>}
         {ad.isVideo && <span className="ad-video-tag">▶ Video</span>}
+        {m.fatigue && <span className="ad-fatigue-tag">Fatiga · frec. {m.frequency.toFixed(1)}</span>}
       </div>
       <div className="ad-body">
         <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
@@ -154,6 +179,7 @@ function AdDrawer({ ad, currency, onClose }) {
   const rows = [
     ["Inversión", formatMoney(m.spend, currency)],
     ["Impresiones", Math.round(m.impressions).toLocaleString("es-AR")],
+    ["Frecuencia", m.frequency !== null && m.frequency !== undefined ? m.frequency.toFixed(2) : "—"],
     ["Clicks en el enlace", Math.round(m.linkClicks).toLocaleString("es-AR")],
     ["CTR (enlace)", formatPercent(m.ctr, 2)],
     ["CPC", m.cpc !== null ? formatMoney(m.cpc, currency) : "—"],

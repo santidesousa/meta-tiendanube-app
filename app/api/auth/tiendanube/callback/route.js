@@ -44,14 +44,14 @@ export async function GET(request) {
     return NextResponse.json({ error: "No se pudo verificar la tienda", details: err.details }, { status: 400 });
   }
   if (!check.ok) {
-    const url = new URL("/dashboard/tiendanube", process.env.APP_URL);
+    const url = new URL("/dashboard/conexiones", process.env.APP_URL);
     url.searchParams.set("wrong_store", check.store.name || check.store.id);
     const res = NextResponse.redirect(url);
     res.cookies.delete("tiendanube_oauth_state");
     return res;
   }
 
-  const res = NextResponse.redirect(new URL("/dashboard/tiendanube?connected=1", process.env.APP_URL));
+  const res = NextResponse.redirect(new URL("/dashboard/conexiones?connected=tiendanube", process.env.APP_URL));
   res.cookies.delete("tiendanube_oauth_state");
   res.cookies.set("tiendanube_access_token", tokenData.access_token, {
     httpOnly: true,

@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { cached } from "@/lib/cache";
+import { errorResponse, httpError, requireMeta, requireRange } from "../../_shared/route-helpers";
 import { ALLOWED_AD_ACCOUNT_ID, getAccountInsights } from "@/lib/meta";
 import { parseInsight } from "@/lib/metaMetrics";
-
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 const GENDERS = { female: "Mujeres", male: "Hombres", unknown: "Sin dato" };
 const PLATFORMS = {
@@ -72,33 +71,26 @@ const TYPES = {
 
 // GET /api/meta/breakdown?type=age_gender&since=2026-09-01&until=2026-09-27
 export async function GET(request) {
-  const accessToken = cookies().get("meta_access_token")?.value;
-  if (!accessToken) {
-    return NextResponse.json({ error: "No conectado con Meta todavia" }, { status: 401 });
-  }
-
-  const { searchParams } = new URL(request.url);
-  const type = TYPES[searchParams.get("type")];
-  const since = searchParams.get("since");
-  const until = searchParams.get("until");
-  if (!type) {
-    return NextResponse.json({ error: `type invalido. Opciones: ${Object.keys(TYPES).join(", ")}` }, { status: 400 });
-  }
-  if (!DATE_RE.test(since || "") || !DATE_RE.test(until || "")) {
-    return NextResponse.json({ error: "Parametros since/until invalidos (YYYY-MM-DD)" }, { status: 400 });
-  }
-
   try {
-    const rows = await getAccountInsights(
-      accessToken,
-      ALLOWED_AD_ACCOUNT_ID,
-      { since, until },
-      { breakdowns: type.breakdowns, ...(type.metrics ? { metrics: type.metrics } : {}) }
+    const { token } = requireMeta();
+    const range = requireRange(request);
+    const typeKey = new URL(request.url).searchParams.get("type");
+    const type = TYPES[typeKey];
+    if (!type) throw httpError(`type invalido. Opciones: ${Object.keys(TYPES).join(", ")}`, 400, "bad_request");
+
+    const { data, generatedAt } = await cached(
+      "meta",
+      ["breakdown", ALLOWED_AD_ACCOUNT_ID, typeKey, range.since, range.until],
+      async () => {
+        const rows = await getAccountInsights(token, ALLOWED_AD_ACCOUNT_ID, range, {
+          breakdowns: type.breakdowns,
+          ...(type.metrics ? { metrics: type.metrics } : {}),
+        });
+        return rows.map((r) => ({ label: type.label(r), ...(type.extra ? type.extra(r) : {}), ...parseInsight(r) }));
+      }
     );
-    return NextResponse.json(
-      rows.map((r) => ({ label: type.label(r), ...(type.extra ? type.extra(r) : {}), ...parseInsight(r) }))
-    );
+    return NextResponse.json({ rows: data, generatedAt });
   } catch (err) {
-    return NextResponse.json({ error: err.message, details: err.details }, { status: 400 });
+    return errorResponse(err);
   }
 }

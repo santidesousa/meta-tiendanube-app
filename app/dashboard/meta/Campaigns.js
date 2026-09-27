@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { formatMoney, formatPercent } from "../format";
 import { roasClass } from "./Breakdowns";
+import { CsvButton, downloadCsv } from "../csv";
 
 const STATUS = {
   ACTIVE: { label: "Activa", cls: "badge-active" },
@@ -83,6 +84,25 @@ export default function Campaigns({ campaigns, totalSpend, currency, selectedId,
           <h2>Campañas</h2>
           <div className="section-sub">Click en una campaña para ver sus anuncios · click en una columna para ordenar</div>
         </div>
+        <CsvButton
+          onClick={() =>
+            downloadCsv("campanas-meta", [
+              { label: "Campaña", value: (c) => c.name },
+              { label: "Estado", value: (c) => c.status },
+              { label: "Objetivo", value: (c) => OBJECTIVES[c.objective] || c.objective },
+              { label: "Presupuesto diario", value: (c) => c.dailyBudget },
+              { label: "Inversión", value: (c) => c.m.spend },
+              { label: "Impresiones", value: (c) => c.m.impressions },
+              { label: "Clicks enlace", value: (c) => c.m.linkClicks },
+              { label: "CTR", value: (c) => c.m.ctr },
+              { label: "CPM", value: (c) => c.m.cpm },
+              { label: "Compras", value: (c) => c.m.purchases },
+              { label: "CPA", value: (c) => c.m.cpa },
+              { label: "Valor compras", value: (c) => (c.m.hasPurchaseValue ? c.m.purchaseValue : null) },
+              { label: "ROAS", value: (c) => c.m.roas },
+            ], rows)
+          }
+        />
       </div>
       <div className="filter-row" style={{ flexWrap: "wrap" }}>
         {FILTERS.map((f) => (

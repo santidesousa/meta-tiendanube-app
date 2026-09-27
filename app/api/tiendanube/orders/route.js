@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { getAllOrders, verifyStore, wrongStoreMessage } from "@/lib/tiendanube";
+import { getAllOrders } from "@/lib/tiendanube";
+import { computeSummary } from "@/lib/tiendanubeMetrics";
+import { cached } from "@/lib/cache";
+import {
+  assertAllowedStore,
+  errorResponse,
+  requireRange,
+  requireTiendanube,
+} from "../../_shared/route-helpers";
 
 // Tiendanube devuelve fechas como "2026-09-20T15:04:05+0000"; algunos
 // navegadores (Safari) no parsean el offset sin ":", asi que lo normalizamos.
@@ -44,6 +51,10 @@ function slimOrder(o) {
       name: o.customer?.name || o.contact_name || o.shipping_address?.name || "Sin nombre",
       email: o.customer?.email || o.contact_email || null,
       phone: o.customer?.phone || o.contact_phone || o.shipping_address?.phone || null,
+      // Alta del cliente en la tienda: se crea en su primera compra, asi que
+      // sirve para distinguir clientes nuevos de recurrentes.
+      created_at: isoDate(o.customer?.created_at),
+      total_spent: o.customer?.total_spent ? parseFloat(o.customer.total_spent) : null,
     },
     address: o.shipping_address
       ? {
@@ -70,36 +81,34 @@ function slimOrder(o) {
   };
 }
 
-// GET /api/tiendanube/orders?since=2026-09-01&until=2026-09-27
-// Devuelve todos los pedidos creados en ese rango (fechas en hora de Argentina).
+// GET /api/tiendanube/orders?since=2026-09-01&until=2026-09-27[&summary=1]
+// Devuelve todos los pedidos creados en ese rango (fechas en hora de
+// Argentina). Con summary=1 devuelve solo los KPIs (mucho mas liviano).
 export async function GET(request) {
-  const accessToken = cookies().get("tiendanube_access_token")?.value;
-  const storeId = cookies().get("tiendanube_store_id")?.value;
-
-  if (!accessToken || !storeId) {
-    return NextResponse.json({ error: "No conectado con Tiendanube todavia" }, { status: 401 });
-  }
-
-  const { searchParams } = new URL(request.url);
-  const since = searchParams.get("since");
-  const until = searchParams.get("until");
-
-  const filters = {};
-  if (since) filters.created_at_min = `${since}T00:00:00-03:00`;
-  if (until) filters.created_at_max = `${until}T23:59:59-03:00`;
-
   try {
-    // Chequeo en cada request: una cookie vieja de otra tienda no puede mostrar datos.
-    const { ok, store } = await verifyStore(storeId, accessToken);
-    if (!ok) {
-      return NextResponse.json(
-        { error: wrongStoreMessage(store), code: "wrong_store", store },
-        { status: 403 }
-      );
+    const creds = requireTiendanube();
+    const range = requireRange(request);
+    const summaryOnly = new URL(request.url).searchParams.get("summary") === "1";
+
+    const { data, generatedAt } = await cached(
+      "tiendanube",
+      ["orders", creds.storeId, range.since, range.until],
+      async () => {
+        // Chequeo en cada consulta: una cookie vieja de otra tienda no puede mostrar datos.
+        const store = await assertAllowedStore(creds);
+        const orders = await getAllOrders(creds.storeId, creds.token, {
+          created_at_min: `${range.since}T00:00:00-03:00`,
+          created_at_max: `${range.until}T23:59:59-03:00`,
+        });
+        return { store, orders: orders.map(slimOrder) };
+      }
+    );
+
+    if (summaryOnly) {
+      return NextResponse.json({ store: data.store, summary: computeSummary(data.orders, range), generatedAt });
     }
-    const data = await getAllOrders(storeId, accessToken, filters);
-    return NextResponse.json({ store, orders: data.map(slimOrder) });
+    return NextResponse.json({ ...data, generatedAt });
   } catch (err) {
-    return NextResponse.json({ error: err.message, details: err.details }, { status: 400 });
+    return errorResponse(err);
   }
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { WEEKDAYS_ES } from "@/lib/tiendanubeMetrics";
+import { WEEKDAYS_ES, stockStatus } from "@/lib/tiendanubeMetrics";
 import { formatMoney, formatPercent } from "../format";
 import Thumb from "../Thumb";
 
@@ -9,7 +9,7 @@ import Thumb from "../Thumb";
  * Ranking de productos con imagen. Click en uno filtra la lista de pedidos
  * a los que lo incluyen.
  */
-export function TopProducts({ products, totalRevenue, currency, selectedKey, onSelect }) {
+export function TopProducts({ products, totalRevenue, currency, selectedKey, onSelect, stock, days }) {
   const [sortBy, setSortBy] = useState("revenue");
   const [showAll, setShowAll] = useState(false);
   const sorted = [...products].sort((a, b) => b[sortBy] - a[sortBy]);
@@ -61,6 +61,7 @@ export function TopProducts({ products, totalRevenue, currency, selectedKey, onS
                   {p.variants.length > 4 && <span className="chip">+{p.variants.length - 4}</span>}
                 </div>
               )}
+              <StockChip status={stockStatus(p.key, p.units, days, stock)} />
             </div>
             <div className="product-stats mono">
               <div className="strong">{formatMoney(p.revenue, currency)}</div>
@@ -79,6 +80,24 @@ export function TopProducts({ products, totalRevenue, currency, selectedKey, onS
         <button className="link-btn" onClick={() => setShowAll(!showAll)}>
           {showAll ? "Ver menos" : `Ver los ${sorted.length} productos`}
         </button>
+      )}
+    </div>
+  );
+}
+
+function StockChip({ status }) {
+  if (!status || status.level === "unlimited") return null;
+  const text =
+    status.level === "out"
+      ? "Sin stock"
+      : `Stock: ${status.stock} u.` + (status.daysLeft !== null ? ` · ≈${Math.round(status.daysLeft)} días` : "");
+  return (
+    <div className="product-variants">
+      <span className={`chip stock-${status.level}`}>{text}</span>
+      {status.level !== "out" && status.outVariants.length > 0 && (
+        <span className="chip stock-low" title={status.outVariants.join(", ")}>
+          {status.outVariants.length} {status.outVariants.length === 1 ? "variante agotada" : "variantes agotadas"}
+        </span>
       )}
     </div>
   );

@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { getMetaCredentials } from "@/lib/credentials";
 import { ALLOWED_AD_ACCOUNT_ID, getCampaigns } from "@/lib/meta";
 
 // GET /api/meta/campaigns?accountId=act_123456789
 // Devuelve las campañas de la cuenta publicitaria indicada.
 export async function GET(request) {
-  const accessToken = cookies().get("meta_access_token")?.value;
+  const accessToken = getMetaCredentials()?.token;
 
   if (!accessToken) {
     return NextResponse.json({ error: "No conectado con Meta todavia" }, { status: 401 });
