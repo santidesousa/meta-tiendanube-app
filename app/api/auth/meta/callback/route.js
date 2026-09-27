@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { ALLOWED_AD_ACCOUNT_ID, getAdAccount } from "@/lib/meta";
+import { tokenErrorPage, tokenPage } from "@/lib/tokenPage";
 
 // GET /api/auth/meta/callback?code=...&state=...
 // Meta redirige aca despues de que el usuario acepta los permisos.
@@ -45,17 +47,40 @@ export async function GET(request) {
   const longLivedRes = await fetch(longLivedUrl.toString());
   const longLivedData = await longLivedRes.json();
 
-  // El token queda en una cookie httpOnly del navegador de la agencia. Para
-  // que el panel funcione para todos, se copia a META_ACCESS_TOKEN en Vercel
-  // desde /dashboard/conexiones (ver lib/credentials.js).
-  const res = NextResponse.redirect(new URL("/dashboard/conexiones?connected=meta", process.env.APP_URL));
-  res.cookies.delete("meta_oauth_state");
-  res.cookies.set("meta_access_token", longLivedData.access_token || tokenData.access_token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 60 * 60 * 24 * 55, // ~55 dias
-    path: "/",
-  });
+  const token = longLivedData.access_token || tokenData.access_token;
+  const expiresIn = longLivedData.expires_in || tokenData.expires_in;
 
+  // Chequeo: el token tiene que ver la cuenta de Tout Revient.
+  let account = null;
+  try {
+    account = await getAdAccount(token, ALLOWED_AD_ACCOUNT_ID);
+  } catch {
+    return tokenErrorPage(
+      "Este usuario no tiene acceso a Tout Revient",
+      `El usuario de Facebook con el que conectaste no puede ver la cuenta publicitaria ${ALLOWED_AD_ACCOUNT_ID}. Conectá con un usuario que tenga acceso a esa cuenta.`
+    );
+  }
+
+  const expires = expiresIn
+    ? new Date(Date.now() + expiresIn * 1000).toLocaleDateString("es-AR", { day: "numeric", month: "long", year: "numeric" })
+    : null;
+
+  // El token NO se guarda en cookies: se muestra para pegarlo en Vercel.
+  const res = tokenPage({
+    title: "Token de Meta Ads",
+    intro: `Conectado a la cuenta publicitaria "${account.name}" (${ALLOWED_AD_ACCOUNT_ID}). Copiá este valor a las Environment Variables de Vercel.`,
+    fields: [{ name: "META_ACCESS_TOKEN", label: "Access token", value: token }],
+    note: expires
+      ? `Este token vence el <b>${expires}</b>. Antes de esa fecha, volvé a entrar a <code>/api/auth/meta</code> y actualizá la variable. Para no tener que renovarlo, se puede usar un token de <b>usuario del sistema</b> de Business Manager (no vence).`
+      : undefined,
+  });
+  clearOldCookies(res, ["meta_oauth_state", "meta_access_token"]);
   return res;
+}
+
+// Borra cookies de versiones anteriores (antes el token vivia en cookies).
+function clearOldCookies(res, names) {
+  for (const name of names) {
+    res.headers.append("Set-Cookie", `${name}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax`);
+  }
 }

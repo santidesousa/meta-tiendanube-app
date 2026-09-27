@@ -35,16 +35,22 @@ Sin ninguna de las dos configurada, nadie puede entrar.
 
 ## Puesta en marcha
 
+Los tokens de Meta y Tiendanube viven **solo** en variables de entorno de
+Vercel: quien entra al panel ve los datos sin conectar nada.
+
 1. En Vercel → Settings → Environment Variables, cargá las variables de
-   `.env.local.example` (como mínimo las contraseñas y las de las apps de
-   Meta y Tiendanube). Volvé a deployar.
-2. Entrá con la contraseña de agencia y andá a **Conexiones**.
-3. Conectá Meta y Tiendanube (en Tiendanube, logueado con la cuenta de
-   Tout Revient: cualquier otra tienda se rechaza).
-4. Tocá **Mostrar valores** y copiá `META_ACCESS_TOKEN`,
-   `TIENDANUBE_ACCESS_TOKEN` y `TIENDANUBE_STORE_ID` a Vercel. Redeploy.
-5. En Conexiones, copiá el **link para tu clienta** y mandáselo: entra
-   directo, sin contraseña y en solo lectura (también puede entrar con
+   `.env.local.example` (contraseñas y datos de las apps de Meta y
+   Tiendanube). Redeploy.
+2. Entrá con la contraseña de agencia → **Conexiones**.
+3. **Obtener token de Meta** (o abrí `/api/auth/meta`): al aceptar, la
+   página muestra `META_ACCESS_TOKEN` con un botón Copiar.
+4. Entrá a Tiendanube con la cuenta de Tout Revient y tocá **Obtener token
+   de Tiendanube** (o `/api/auth/tiendanube`): muestra
+   `TIENDANUBE_ACCESS_TOKEN` y `TIENDANUBE_STORE_ID`. Otra tienda se
+   rechaza.
+5. Pegá los tres valores en Vercel (Production) y hacé Redeploy.
+6. En Conexiones, copiá el **link para tu clienta**: entra directo, sin
+   contraseña y en solo lectura (también puede entrar con
    `DASHBOARD_PASSWORD`). Para invalidar el link, cambiá esa contraseña.
 
 El token de Meta de usuario vence a los ~60 días (Conexiones avisa). Para

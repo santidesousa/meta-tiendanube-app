@@ -96,7 +96,7 @@ export default function TiendanubePage() {
         <div className={"card" + (error.code === "wrong_store" ? " ad-card-alert" : "")}>
           <p style={{ color: "var(--danger)", marginTop: 0 }}>
             {error.message === NOT_CONNECTED
-              ? "Tiendanube todavía no está conectado."
+              ? "Datos no disponibles, contactá al administrador."
               : error.code === "wrong_store"
               ? `${error.message} Hay que reconectar con la cuenta de Tout Revient.`
               : `No pudimos traer los pedidos: ${error.message}`}

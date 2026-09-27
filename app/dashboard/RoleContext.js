@@ -16,9 +16,8 @@ export function useRole() {
 /** Aviso de conexion faltante: la agencia ve el boton, el cliente un mensaje. */
 export function ConnectionHint({ className = "btn btn-tiendanube" }) {
   const role = useRole();
-  if (role !== "admin") {
-    return <p className="muted small" style={{ margin: 0 }}>Avisale a la agencia para que lo revise.</p>;
-  }
+  // El cliente solo ve el mensaje generico; la agencia, el acceso a Conexiones.
+  if (role !== "admin") return null;
   return (
     <a href="/dashboard/conexiones" className={className}>
       Ir a Conexiones

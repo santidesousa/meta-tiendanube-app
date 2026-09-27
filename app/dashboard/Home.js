@@ -23,6 +23,8 @@ import { computeAlerts } from "@/lib/alerts";
 
 const MARGIN_KEY = "tr_margin";
 
+const notConnected = (msg) => /^No conectado/.test(msg || "");
+
 function readStoredMargin() {
   try {
     const v = parseFloat(localStorage.getItem(MARGIN_KEY));
@@ -178,8 +180,9 @@ function HomeContent({ range, tn, prevTn, meta, abandoned, stock, margin, defaul
     <div>
       {(tn?.error || meta?.error) && (
         <div className="card kpi-warning small">
-          {tn?.error && <div>Tiendanube: {tn.error}</div>}
-          {meta?.error && <div>Meta: {meta.error}</div>}
+          {tn?.error && <div>Tiendanube: {notConnected(tn.error) ? "datos no disponibles." : tn.error}</div>}
+          {meta?.error && <div>Meta: {notConnected(meta.error) ? "datos no disponibles." : meta.error}</div>}
+          <div>Contactá al administrador.</div>
           <ConnectionHint className="link-btn" />
         </div>
       )}

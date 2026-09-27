@@ -74,7 +74,7 @@ export default function MetaPage() {
       {error && (
         <div className="card">
           <p style={{ color: "var(--danger)", marginTop: 0 }}>
-            {error === NOT_CONNECTED ? "Meta todavía no está conectado." : `No pudimos traer los datos de Meta: ${error}`}
+            {error === NOT_CONNECTED ? "Datos no disponibles, contactá al administrador." : `No pudimos traer los datos de Meta: ${error}`}
           </p>
           <ConnectionHint className="btn btn-meta" />
         </div>
