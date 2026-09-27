@@ -1,38 +1,54 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import DateRangePicker, { presetRange } from "../DateRangePicker";
+import {
+  breakdown,
+  computeSummary,
+  dailySeries,
+  localParts,
+  paymentLabel,
+  previousRange,
+  salesHeatmap,
+  topCustomers,
+  topProducts,
+} from "@/lib/tiendanubeMetrics";
+import SalesChart from "./SalesChart";
+import { Breakdowns, SalesHeatmap, TopProducts } from "./Insights";
+import { OrdersSection } from "./Orders";
+import { delta, formatDayLabel, formatMoney, formatPercent } from "./format";
 
-function formatMoney(value, currency = "ARS") {
-  return new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
-// Tiendanube devuelve created_at en UTC; agrupamos por dia en hora argentina
-// para que coincida con el rango elegido.
-function localDay(createdAt) {
-  const d = new Date(createdAt);
-  if (isNaN(d)) return (createdAt || "").slice(0, 10);
-  return d.toLocaleDateString("en-CA", { timeZone: "America/Argentina/Buenos_Aires" });
+async function fetchOrders({ since, until }) {
+  const res = await fetch(`/api/tiendanube/orders?since=${since}&until=${until}`);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
 }
 
 export default function TiendanubePage() {
   const [range, setRange] = useState({ key: "30d", ...presetRange("30d") });
   const [orders, setOrders] = useState(null);
+  const [prevOrders, setPrevOrders] = useState(null);
   const [error, setError] = useState(null);
+  const latestRequest = useRef(0);
 
   useEffect(() => {
+    const requestId = ++latestRequest.current;
     setOrders(null);
-    fetch(`/api/tiendanube/orders?since=${range.since}&until=${range.until}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.error) setError(data.error);
-        else setOrders(data);
+    setPrevOrders(null);
+    setError(null);
+    // El periodo anterior es solo para comparar: si falla, seguimos sin deltas.
+    const prev = fetchOrders(previousRange(range)).catch(() => null);
+    fetchOrders(range)
+      .then(async (data) => {
+        if (requestId !== latestRequest.current) return;
+        setOrders(data);
+        const prevData = await prev;
+        if (requestId === latestRequest.current) setPrevOrders(prevData);
       })
-      .catch((err) => setError(err.message));
+      .catch((err) => {
+        if (requestId === latestRequest.current) setError(err.message);
+      });
   }, [range]);
 
   return (
@@ -41,147 +57,217 @@ export default function TiendanubePage() {
       <DateRangePicker value={range} onChange={setRange} />
 
       {error && (
-        <>
-          <p style={{ color: "var(--danger)" }}>
+        <div className="card">
+          <p style={{ color: "var(--danger)", marginTop: 0 }}>
             {error === "No conectado con Tiendanube todavia"
               ? "Todavía no conectaste tu cuenta de Tiendanube."
-              : `Error: ${error}`}
+              : `No pudimos traer los pedidos: ${error}`}
           </p>
           <a href="/api/auth/tiendanube" className="btn btn-tiendanube">
-            Conectar cuenta de Tiendanube
+            {error === "No conectado con Tiendanube todavia" ? "Conectar" : "Reconectar"} cuenta de Tiendanube
           </a>
-        </>
+        </div>
       )}
 
-      {!error && !orders && (
-        <p style={{ color: "var(--muted)" }}>Cargando pedidos...</p>
+      {!error && !orders && <LoadingSkeleton />}
+
+      {!error && orders && orders.length === 0 && (
+        <div className="card empty-state">
+          No hay pedidos entre el {formatDayLabel(range.since)} y el {formatDayLabel(range.until)}. Probá con un
+          rango más amplio.
+        </div>
       )}
 
-      {!error && orders && <TiendanubeContent orders={orders} range={range} />}
+      {!error && orders && orders.length > 0 && (
+        <Dashboard orders={orders} prevOrders={prevOrders} range={range} />
+      )}
     </div>
   );
 }
 
-function TiendanubeContent({ orders, range }) {
+function Dashboard({ orders, prevOrders, range }) {
+  const [selectedDay, setSelectedDay] = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState(null);
 
-  const paidOrders = orders.filter((o) => o.payment_status === "paid");
-  const totalRevenue = paidOrders.reduce(
-    (sum, o) => sum + parseFloat(o.total || 0),
-    0
-  );
-  const avgTicket = paidOrders.length ? totalRevenue / paidOrders.length : 0;
   const currency = orders[0]?.currency || "ARS";
-  const pendingCount = orders.filter(
-    (o) => o.payment_status === "pending" || o.payment_status === "authorized"
-  ).length;
+  const summary = useMemo(() => computeSummary(orders), [orders]);
+  const prev = useMemo(() => (prevOrders ? computeSummary(prevOrders) : null), [prevOrders]);
+  const series = useMemo(() => dailySeries(orders, range.since, range.until), [orders, range]);
+  const products = useMemo(() => topProducts(orders), [orders]);
+  const heatmap = useMemo(() => salesHeatmap(orders), [orders]);
+  const breakdownTabs = useMemo(
+    () => [
+      { key: "payment", label: "Medio de pago", rows: breakdown(orders, paymentLabel) },
+      {
+        key: "province",
+        label: "Provincia",
+        rows: breakdown(orders, (o) => (o.pickup ? "Retiro en local" : o.address?.province)),
+      },
+      {
+        key: "shipping",
+        label: "Envío",
+        rows: breakdown(orders, (o) => (o.pickup ? "Retiro en local" : o.shipping_option)),
+      },
+      {
+        key: "coupon",
+        label: "Cupones",
+        rows: breakdown(
+          orders.filter((o) => o.coupons.length),
+          (o) => o.coupons
+        ),
+        empty: "No se usaron cupones en ventas de este período.",
+      },
+      {
+        key: "customers",
+        label: "Mejores clientes",
+        rows: topCustomers(orders),
+        note: `${summary.repeatCustomers} de ${summary.customers} clientes compraron más de una vez en el período.`,
+      },
+    ],
+    [orders, summary]
+  );
 
-  // Ventas por dia
-  const byDay = {};
-  for (const o of paidOrders) {
-    const day = localDay(o.created_at);
-    if (!byDay[day]) byDay[day] = { count: 0, total: 0 };
-    byDay[day].count += 1;
-    byDay[day].total += parseFloat(o.total || 0);
-  }
-  const days = Object.entries(byDay).sort((a, b) => (a[0] < b[0] ? 1 : -1));
+  // Si cambian los pedidos (nuevo rango), limpiamos los filtros cruzados.
+  useEffect(() => {
+    setSelectedDay(null);
+    setSelectedProduct(null);
+  }, [orders]);
 
-  // Productos mas vendidos (por cantidad e ingresos)
-  const byProduct = {};
-  for (const o of paidOrders) {
-    for (const p of o.products || []) {
-      const key = p.name_without_variants || p.name;
-      if (!byProduct[key]) byProduct[key] = { qty: 0, revenue: 0 };
-      byProduct[key].qty += p.quantity || 0;
-      byProduct[key].revenue += (p.quantity || 0) * parseFloat(p.price || 0);
-    }
+  const externalFilters = [];
+  if (selectedDay) {
+    externalFilters.push({
+      key: "day",
+      label: `Día: ${formatDayLabel(selectedDay)}`,
+      test: (o) => localParts(o.created_at)?.day === selectedDay,
+    });
   }
-  const topProducts = Object.entries(byProduct)
-    .sort((a, b) => b[1].revenue - a[1].revenue)
-    .slice(0, 6);
+  if (selectedProduct) {
+    const product = products.find((p) => p.key === selectedProduct);
+    externalFilters.push({
+      key: "product",
+      label: `Producto: ${product?.name || ""}`,
+      test: (o) => o.products.some((p) => String(p.product_id || p.name) === selectedProduct),
+    });
+  }
+
+  function clearExternal(key) {
+    if (key === "day") setSelectedDay(null);
+    if (key === "product") setSelectedProduct(null);
+  }
+
+  function scrollToOrders() {
+    document.getElementById("pedidos")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   return (
     <div>
-      <p style={{ color: "var(--muted)", marginTop: 0, fontSize: "0.85rem" }}>
-        {orders.length} pedidos del {range.since} al {range.until} (
-        {pendingCount} pendientes de pago no incluidos en los totales)
-      </p>
+      <div className="kpi-grid">
+        <Kpi
+          label="Facturación"
+          value={formatMoney(summary.revenue, currency)}
+          change={prev && delta(summary.revenue, prev.revenue)}
+        />
+        <Kpi
+          label="Pedidos pagados"
+          value={summary.paidCount}
+          change={prev && delta(summary.paidCount, prev.paidCount)}
+          sub={`${formatPercent(summary.conversionRate)} de los pedidos creados`}
+        />
+        <Kpi
+          label="Ticket promedio"
+          value={formatMoney(summary.avgTicket, currency)}
+          change={prev && delta(summary.avgTicket, prev.avgTicket)}
+        />
+        <Kpi
+          label="Unidades vendidas"
+          value={summary.units}
+          change={prev && delta(summary.units, prev.units)}
+          sub={`${summary.unitsPerOrder.toFixed(1)} por pedido`}
+        />
+        <Kpi
+          label="Clientes"
+          value={summary.customers}
+          change={prev && delta(summary.customers, prev.customers)}
+          sub={`${summary.repeatCustomers} recompraron`}
+        />
+        <Kpi
+          label="Pendientes de pago"
+          value={formatMoney(summary.pendingAmount, currency)}
+          sub={`${summary.pendingCount} pedidos sin cobrar · ${summary.cancelledCount} cancelados`}
+          tone={summary.pendingCount > 0 ? "warning" : undefined}
+        />
+      </div>
+      {prev && (
+        <div className="section-sub" style={{ marginTop: -18, marginBottom: 20 }}>
+          Variaciones vs. el período anterior ({formatDayLabel(previousRange(range).since)} –{" "}
+          {formatDayLabel(previousRange(range).until)}). Descuentos otorgados:{" "}
+          {formatMoney(summary.discountTotal, currency)} · Envíos cobrados:{" "}
+          {formatMoney(summary.shippingTotal, currency)}
+        </div>
+      )}
 
-      <div className="kpi-row">
-        <div className="kpi-card">
-          <div className="kpi-label">Ventas totales</div>
-          <div className="kpi-value">
-            {formatMoney(totalRevenue, currency)}
-          </div>
-        </div>
-        <div className="kpi-card">
-          <div className="kpi-label">Pedidos pagados</div>
-          <div className="kpi-value">{paidOrders.length}</div>
-        </div>
-        <div className="kpi-card">
-          <div className="kpi-label">Ticket promedio</div>
-          <div className="kpi-value">{formatMoney(avgTicket, currency)}</div>
+      <SalesChart
+        series={series}
+        currency={currency}
+        selectedDay={selectedDay}
+        onSelectDay={(day) => {
+          setSelectedDay(day);
+          if (day) scrollToOrders();
+        }}
+      />
+
+      <div className="two-col">
+        <TopProducts
+          products={products}
+          totalRevenue={products.reduce((s, p) => s + p.revenue, 0)}
+          currency={currency}
+          selectedKey={selectedProduct}
+          onSelect={(key) => {
+            setSelectedProduct(key);
+            if (key) scrollToOrders();
+          }}
+        />
+        <div>
+          <Breakdowns tabs={breakdownTabs} currency={currency} />
+          <SalesHeatmap grid={heatmap} />
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: "2rem", alignItems: "flex-start" }}>
-        <div style={{ flex: 1.4 }}>
-          <h2>Ventas por día</h2>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Día</th>
-                <th>Pedidos</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {days.map(([day, data]) => (
-                <tr key={day}>
-                  <td>{day}</td>
-                  <td className="mono">{data.count}</td>
-                  <td className="mono">{formatMoney(data.total, currency)}</td>
-                </tr>
-              ))}
-              {days.length === 0 && (
-                <tr>
-                  <td colSpan={3} className="empty-state">
-                    Todavía no hay ventas pagadas en este período.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+      <OrdersSection
+        orders={orders}
+        currency={currency}
+        externalFilters={externalFilters}
+        onClearExternal={clearExternal}
+      />
+    </div>
+  );
+}
 
-        <div style={{ flex: 1 }}>
-          <h2>Productos más vendidos</h2>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Producto</th>
-                <th>Cant.</th>
-                <th>Ingresos</th>
-              </tr>
-            </thead>
-            <tbody>
-              {topProducts.map(([name, data]) => (
-                <tr key={name}>
-                  <td>{name}</td>
-                  <td className="mono">{data.qty}</td>
-                  <td className="mono">{formatMoney(data.revenue, currency)}</td>
-                </tr>
-              ))}
-              {topProducts.length === 0 && (
-                <tr>
-                  <td colSpan={3} className="empty-state">
-                    Sin datos de productos todavía.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+function Kpi({ label, value, change, sub, tone }) {
+  return (
+    <div className={"kpi-card" + (tone ? ` kpi-${tone}` : "")}>
+      <div className="kpi-label">{label}</div>
+      <div className="kpi-value">{value}</div>
+      {change !== null && change !== undefined && (
+        <div className={"kpi-delta " + (change >= 0 ? "up" : "down")}>
+          {change >= 0 ? "▲" : "▼"} {formatPercent(Math.abs(change))}
         </div>
+      )}
+      {sub && <div className="kpi-sub">{sub}</div>}
+    </div>
+  );
+}
+
+function LoadingSkeleton() {
+  return (
+    <div>
+      <div className="kpi-grid">
+        {Array.from({ length: 6 }, (_, i) => (
+          <div key={i} className="kpi-card skeleton" style={{ height: 92 }} />
+        ))}
       </div>
+      <div className="card skeleton" style={{ height: 260 }} />
+      <p style={{ color: "var(--muted)" }}>Cargando pedidos…</p>
     </div>
   );
 }
