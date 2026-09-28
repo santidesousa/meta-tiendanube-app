@@ -1013,7 +1013,8 @@ table.data-table {
   .kpi-grid.kpi-secondary { grid-template-columns: repeat(2, 1fr); }
   .filter-row { flex-wrap: nowrap !important; overflow-x: auto; scrollbar-width: none; }
   .filter-pill, .filter-chip { white-space: nowrap; }
-  .date-range { flex-wrap: wrap !important; }
+  /* overflow visible: si no, el calendario desplegable queda recortado */
+  .date-range { flex-wrap: wrap !important; overflow: visible !important; }
   .date-inputs { margin-left: 0; width: 100%; justify-content: space-between; flex-wrap: wrap; border-radius: 12px; }
   .date-inputs input[type="date"] { min-width: 0; }
   .search-input { min-width: 0; width: 100%; }
@@ -1187,3 +1188,104 @@ table.data-table {
 .evolution-chart .recharts-wrapper:focus,
 .evolution-chart .recharts-surface:focus,
 .evolution-chart svg:focus { outline: none; }
+
+/* =========================================================
+   Selector de rango (calendario)
+   ========================================================= */
+.range-anchor { position: relative; }
+.range-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: 100px;
+  padding: 0.4rem 0.85rem;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.range-trigger:hover, .range-trigger.open { border-color: var(--ink); }
+.range-trigger.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+.range-caret { font-size: 0.7rem; opacity: 0.6; }
+
+.range-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 60;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(20, 23, 26, 0.14);
+  padding: 0.9rem 1rem 1rem;
+}
+.cal-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.4rem; }
+.cal-hint { font-size: 0.78rem; color: var(--muted); }
+.cal-nav {
+  width: 30px;
+  height: 30px;
+  border-radius: 100px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--ink);
+}
+.cal-nav:disabled { opacity: 0.3; cursor: default; }
+.cal-months { display: flex; gap: 1.5rem; }
+.cal-title { font-weight: 700; font-size: 0.85rem; margin: 0.3rem 0 0.5rem 0.3rem; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 40px); row-gap: 4px; }
+.cal-dow { text-align: center; font-size: 0.7rem; font-weight: 600; color: var(--muted); padding-bottom: 4px; }
+
+.cal-day {
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+}
+.cal-day span {
+  width: 36px;
+  height: 36px;
+  border-radius: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+.cal-day:hover span { background: #f1f1ef; }
+/* Banda del rango, con los extremos cortados a la mitad para que el
+   circulo de inicio/fin quede "enganchado" a la banda */
+.cal-day.in-range { background: var(--accent-soft); }
+.cal-day.range-start { background: linear-gradient(to right, transparent 50%, var(--accent-soft) 50%); }
+.cal-day.range-end { background: linear-gradient(to left, transparent 50%, var(--accent-soft) 50%); }
+.cal-day.range-start.range-end { background: none; }
+.cal-day.in-range:hover span { background: rgba(47, 93, 80, 0.12); }
+.cal-day.range-start span, .cal-day.range-end span,
+.cal-day.range-start:hover span, .cal-day.range-end:hover span {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+.cal-day.today span { box-shadow: inset 0 0 0 1.5px #c9cbc7; }
+.cal-day.disabled { cursor: default; }
+.cal-day.disabled span { color: #c2c4c0; }
+.cal-day.disabled:hover span { background: none; }
+
+@media (max-width: 640px) {
+  .range-anchor { width: 100%; }
+  .range-trigger { width: 100%; justify-content: center; }
+  .range-popover { left: 50%; transform: translateX(-50%); padding: 0.8rem; }
+  .cal-month-prev { display: none; }
+  .cal-grid { grid-template-columns: repeat(7, 38px); }
+}
+@media print {
+  .range-popover { display: none; }
+}
