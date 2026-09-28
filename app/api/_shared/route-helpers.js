@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import {
+  NOT_CONNECTED_GA,
   NOT_CONNECTED_META,
   NOT_CONNECTED_TIENDANUBE,
+  getGaCredentials,
   getMetaCredentials,
   getTiendanubeCredentials,
 } from "@/lib/credentials";
@@ -36,6 +38,13 @@ export function requireRange(request) {
 export function requireMeta() {
   const creds = getMetaCredentials();
   if (!creds) throw httpError(NOT_CONNECTED_META, 401, "not_connected");
+  return creds;
+}
+
+export function requireGa() {
+  const creds = getGaCredentials();
+  if (!creds) throw httpError(NOT_CONNECTED_GA, 401, "not_connected");
+  if (creds.error) throw httpError(creds.error, 500, "bad_config");
   return creds;
 }
 

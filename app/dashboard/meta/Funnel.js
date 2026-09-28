@@ -5,8 +5,8 @@ import { formatPercent } from "../format";
  * Muestra la conversion entre cada paso para detectar donde se cae la gente.
  * Los pasos sin datos (pixel sin ese evento) se omiten.
  */
-export default function Funnel({ metrics, compact = false }) {
-  const steps = [
+export default function Funnel({ metrics, compact = false, steps: customSteps, title, subtitle }) {
+  const steps = customSteps || [
     { key: "impressions", label: "Impresiones" },
     { key: "linkClicks", label: "Clicks en el enlace" },
     { key: "landingViews", label: "Visitas a la web" },
@@ -16,15 +16,17 @@ export default function Funnel({ metrics, compact = false }) {
     { key: "purchases", label: "Compraron" },
   ].filter((s, i, all) => s.key === "impressions" || s.key === "purchases" || metrics[s.key] > 0);
 
-  const top = Math.max(1, metrics.impressions);
+  const top = Math.max(1, metrics[steps[0].key] || 0);
   // Escala logaritmica: de impresiones a compras hay ordenes de magnitud y
   // con escala lineal los ultimos pasos serian invisibles.
   const width = (v) => (v > 0 ? Math.max(4, (Math.log10(v + 1) / Math.log10(top + 1)) * 100) : 0);
 
-  // El paso con peor conversion (sin contar impresiones -> click).
+  // El paso con peor conversion. En el embudo de Meta no cuenta impresiones
+  // -> click (siempre es bajisimo y no dice nada).
+  const firstComparable = customSteps ? 1 : 2;
   let worst = null;
   steps.forEach((s, i) => {
-    if (i < 2) return;
+    if (i < firstComparable) return;
     const prev = metrics[steps[i - 1].key];
     const rate = prev ? metrics[s.key] / prev : null;
     if (rate !== null && (worst === null || rate < worst.rate)) worst = { key: s.key, rate };
@@ -35,8 +37,10 @@ export default function Funnel({ metrics, compact = false }) {
       {!compact && (
         <div className="section-head">
           <div>
-            <h2>Embudo de conversión</h2>
-            <div className="section-sub">De cada paso al siguiente. En rojo, donde más gente se pierde.</div>
+            <h2>{title || "Embudo de conversión"}</h2>
+            <div className="section-sub">
+              {subtitle || "De cada paso al siguiente. En rojo, donde más gente se pierde."}
+            </div>
           </div>
         </div>
       )}

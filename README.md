@@ -15,6 +15,10 @@ en **Meta Ads** de Tout Revient. Deploy automático en Vercel al hacer push a
 - **Meta Ads**: KPIs, evolución diaria, embudo, desgloses por
   edad/plataforma/región/hora, campañas y creatividades (con alertas de
   anuncios sin ventas y de fatiga).
+- **Google Analytics**: usuarios, sesiones, interacción, compras, ingresos
+  y conversión con comparación y tendencia, evolución, embudo de compra,
+  canales y detalle por fuente/medio, campañas (UTM), páginas, productos,
+  dispositivos y regiones. Muestra los usuarios en el sitio en este momento.
 - **Conexiones** (solo agencia): estado de las conexiones, vencimiento del
   token de Meta y valores para copiar a Vercel.
 
@@ -52,6 +56,18 @@ Vercel: quien entra al panel ve los datos sin conectar nada.
 6. En Conexiones, copiá el **link para tu clienta**: entra directo, sin
    contraseña y en solo lectura (también puede entrar con
    `DASHBOARD_PASSWORD`). Para invalidar el link, cambiá esa contraseña.
+
+**Google Analytics 4** usa una cuenta de servicio (no vence y no requiere
+"conectar"):
+
+1. Google Cloud Console → crear/elegir proyecto → habilitar **Google
+   Analytics Data API** → crear una **cuenta de servicio** → Claves →
+   Agregar clave → JSON.
+2. GA4 → Administrar → **Acceso a la propiedad** → agregar el email de la
+   cuenta de servicio con rol **Lector**.
+3. En Vercel: `GA_PROPERTY_ID` (el número de la propiedad) y
+   `GA_SERVICE_ACCOUNT_JSON` (el contenido completo del .json). Redeploy.
+   Conexiones confirma si el acceso funciona.
 
 El token de Meta de usuario vence a los ~60 días (Conexiones avisa). Para
 evitarlo, usá un token de **usuario del sistema** de Business Manager.

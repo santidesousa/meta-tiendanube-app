@@ -34,6 +34,8 @@ export default function ConexionesPage() {
   const tn = status?.tiendanube;
   const metaOk = Boolean(meta?.source && meta.account);
   const tnOk = Boolean(tn?.source && tn.ok);
+  const ga = status?.ga;
+  const gaOk = Boolean(ga?.source && ga.ok);
   const metaDays = meta?.token?.expiresAt ? daysUntil(meta.token.expiresAt) : null;
 
   return (
@@ -47,7 +49,7 @@ export default function ConexionesPage() {
 
       {!status && <div className="card skeleton" style={{ height: 200 }} />}
 
-      {status && (!metaOk || !tnOk) && (
+      {status && (!metaOk || !tnOk || !gaOk) && (
         <div className="card kpi-warning">
           <strong>Tu clienta todavía no ve todos los datos.</strong>
           <div className="small" style={{ marginTop: 4 }}>
@@ -109,6 +111,45 @@ export default function ConexionesPage() {
               Antes, entrá a Tiendanube con la cuenta de Tout Revient.
             </div>
           </div>
+        </div>
+      )}
+
+      {status && (
+        <div className="card">
+          <div className="section-head">
+            <h2>Google Analytics 4</h2>
+            <StatusBadge ok={gaOk} />
+          </div>
+          <div className="drawer-block">
+            <div>
+              Propiedad: <b className="mono">{ga.propertyId || "—"}</b>
+            </div>
+            {ga.clientEmail && (
+              <div className="small">
+                Cuenta de servicio: <span className="mono">{ga.clientEmail}</span>
+              </div>
+            )}
+            {!ga.source && !ga.error && (
+              <div className="muted small">Faltan GA_PROPERTY_ID y/o GA_SERVICE_ACCOUNT_JSON.</div>
+            )}
+            {ga.error && <div className="alert-note">{ga.error}</div>}
+          </div>
+          {!gaOk && (
+            <ol className="steps small" style={{ marginTop: 10 }}>
+              <li>
+                En Google Cloud Console creá (o elegí) un proyecto, habilitá la <b>Google Analytics Data API</b> y creá
+                una <b>cuenta de servicio</b>. En “Claves” → Agregar clave → JSON: se descarga un archivo.
+              </li>
+              <li>
+                En GA4 → Administrar → <b>Acceso a la propiedad</b>, agregá el email de la cuenta de servicio con rol{" "}
+                <b>Lector</b>.
+              </li>
+              <li>
+                En Vercel, cargá <code>GA_PROPERTY_ID</code> (GA4 → Administrar → Detalles de la propiedad, el número)
+                y <code>GA_SERVICE_ACCOUNT_JSON</code> (pegá el contenido completo del archivo JSON). Redeploy.
+              </li>
+            </ol>
+          )}
         </div>
       )}
 

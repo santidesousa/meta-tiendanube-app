@@ -7,6 +7,7 @@ const LINKS = [
   { href: "/dashboard", label: "Resumen" },
   { href: "/dashboard/tiendanube", label: "Tiendanube" },
   { href: "/dashboard/meta", label: "Meta Ads" },
+  { href: "/dashboard/analytics", label: "Google Analytics" },
   { href: "/dashboard/conexiones", label: "Conexiones", adminOnly: true },
 ];
 

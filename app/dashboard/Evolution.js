@@ -135,7 +135,8 @@ export default function Evolution({ defs, toggleKeys, defaultOn, weekly, daily, 
                 tickFormatter={rightKey ? defs[rightKey].axis : undefined}
                 axisLine={false}
                 tickLine={false}
-                width={44}
+                // Montos ("$ 16 M") necesitan mas lugar que un ROAS ("8.5x").
+                width={rightKey && defs[rightKey].axis(1e6).length > 5 ? 72 : 44}
               />
               {lines
                 .filter((k) => k !== rightKey)
