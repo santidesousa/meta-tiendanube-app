@@ -6,7 +6,7 @@ import PageHeader, { oldest } from "../PageHeader";
 import {
   breakdown,
   computeSummary,
-  dailySeries,
+  periodSeries,
   daysBetween,
   localParts,
   paymentLabel,
@@ -17,18 +17,16 @@ import {
 } from "@/lib/tiendanubeMetrics";
 import { fetchJson } from "../api";
 import { ConnectionHint } from "../RoleContext";
-import SalesChart from "./SalesChart";
+import MetricCards from "../MetricCards";
+import Evolution from "../Evolution";
+import { CARD_KEYS, EVOLUTION_DEFAULT, metricDefs } from "./metricDefs";
 import { Breakdowns, SalesHeatmap, TopProducts } from "./Insights";
 import { OrdersSection } from "./Orders";
 import AbandonedCarts from "./AbandonedCarts";
-import Kpi from "../Kpi";
 import {
-  delta,
   formatCompactMoney,
   formatDayLabel,
-  formatMoney,
   formatNumber,
-  formatPercent,
 } from "../format";
 
 const NOT_CONNECTED = "No conectado con Tiendanube todavia";
@@ -127,7 +125,9 @@ function Dashboard({ orders, prev, range, abandoned, stock }) {
 
   const currency = orders[0]?.currency || "ARS";
   const summary = useMemo(() => computeSummary(orders, range), [orders, range]);
-  const series = useMemo(() => dailySeries(orders, range.since, range.until), [orders, range]);
+  const defs = useMemo(() => metricDefs(currency), [currency]);
+  const dailyKpis = useMemo(() => periodSeries(orders, range.since, range.until, 1), [orders, range]);
+  const weeklyKpis = useMemo(() => periodSeries(orders, range.since, range.until, 7), [orders, range]);
   const products = useMemo(() => topProducts(orders), [orders]);
   const heatmap = useMemo(() => salesHeatmap(orders), [orders]);
   const days = daysBetween(range.since, range.until);
@@ -195,87 +195,53 @@ function Dashboard({ orders, prev, range, abandoned, stock }) {
     document.getElementById("pedidos")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  const d = (key) => (prev ? delta(summary[key], prev[key]) : null);
   const hasNew = summary.newCustomers !== null;
+  // Si Tiendanube no manda la fecha de alta del cliente, no se puede separar
+  // nuevos de recurrentes: mostramos clientes totales y los que recompraron.
+  const cardKeys = hasNew
+    ? CARD_KEYS
+    : CARD_KEYS.map((k) => (k === "newCustomers" ? "customers" : k === "returningCustomers" ? "repeatCustomers" : k));
+  const evolutionKeys = cardKeys;
 
   return (
     <div>
-      <div className="kpi-hero-row">
-        <Kpi
-          hero
-          label="Facturación"
-          value={formatCompactMoney(summary.revenue, currency)}
-          title={formatMoney(summary.revenue, currency)}
-          change={d("revenue")}
-          sub={`${formatMoney(summary.revenue / days, currency)} por día`}
-        />
-        <Kpi
-          hero
-          label="Pedidos pagados"
-          value={formatNumber(summary.paidCount)}
-          change={d("paidCount")}
-          sub={`${formatPercent(summary.conversionRate)} de los pedidos creados se pagó`}
-        />
-        <Kpi
-          hero
-          label="Ticket promedio"
-          value={formatMoney(summary.avgTicket, currency)}
-          change={d("avgTicket")}
-          sub={`${summary.unitsPerOrder.toFixed(1)} unidades por pedido`}
-        />
-      </div>
+      <MetricCards defs={defs} keys={cardKeys} current={summary} previous={prev} series={dailyKpis} />
 
-      <div className="kpi-grid kpi-secondary">
-        <Kpi label="Unidades vendidas" value={formatNumber(summary.units)} change={d("units")} />
-        {hasNew ? (
-          <Kpi
-            label="Clientes nuevos"
-            value={formatNumber(summary.newCustomers)}
-            change={d("newCustomers")}
-            sub={`${summary.customers ? formatPercent(summary.newCustomers / summary.customers) : "—"} de los compradores · ${formatCompactMoney(summary.newCustomersRevenue, currency)}`}
-          />
-        ) : (
-          <Kpi label="Clientes" value={formatNumber(summary.customers)} change={d("customers")} />
-        )}
-        <Kpi
-          label="Clientes recurrentes"
-          value={formatNumber(hasNew ? summary.returningCustomers : summary.repeatCustomers)}
-          sub={hasNew ? "Ya habían comprado antes del período" : "Compraron más de una vez en el período"}
-        />
-        <Kpi
-          label="Pendientes de pago"
-          value={formatCompactMoney(summary.pendingAmount, currency)}
-          title={formatMoney(summary.pendingAmount, currency)}
-          sub={`${summary.pendingCount} pedidos sin cobrar`}
-          tone={summary.pendingCount > 0 ? "warning" : undefined}
-        />
-        <Kpi
-          label="Cancelaciones"
-          value={formatPercent(summary.cancelRate, 1)}
-          change={d("cancelRate")}
-          inverse
-          sub={`${summary.cancelledCount} pedidos · ${formatCompactMoney(summary.cancelledAmount, currency)}`}
-          tone={summary.cancelRate > 0.1 ? "danger" : undefined}
-        />
+      <div className="stat-strip">
+        <span className={summary.pendingCount ? "text-warn" : ""}>
+          Pendientes de pago <b>{formatCompactMoney(summary.pendingAmount, currency)}</b> ({summary.pendingCount})
+        </span>
         {abandoned && !abandoned.unavailable && (
-          <Kpi
-            label="Carritos abandonados"
-            value={formatCompactMoney(abandoned.total, currency)}
-            title={formatMoney(abandoned.total, currency)}
-            sub={`${abandoned.count} carritos sin terminar`}
-            tone={abandoned.total > summary.revenue * 0.2 ? "warning" : undefined}
-          />
+          <span>
+            Carritos abandonados <b>{formatCompactMoney(abandoned.total, currency)}</b> ({abandoned.count})
+          </span>
         )}
+        <span>
+          Clientes <b>{formatNumber(summary.customers)}</b>
+        </span>
+        <span>
+          Unidades por pedido <b>{summary.unitsPerOrder.toFixed(1)}</b>
+        </span>
+        <span>
+          Descuentos <b>{formatCompactMoney(summary.discountTotal, currency)}</b>
+        </span>
+        <span>
+          Envíos cobrados <b>{formatCompactMoney(summary.shippingTotal, currency)}</b>
+        </span>
       </div>
-      <div className="section-sub" style={{ marginTop: -10, marginBottom: 20 }}>
-        Descuentos otorgados: {formatMoney(summary.discountTotal, currency)} · Envíos cobrados:{" "}
-        {formatMoney(summary.shippingTotal, currency)}
-        {hasNew && " · Cliente nuevo = su primera compra en la tienda fue en este período."}
+      <div className="section-sub" style={{ marginBottom: 16 }}>
+        {prev
+          ? `Variaciones vs. ${formatDayLabel(previousRange(range).since)} – ${formatDayLabel(previousRange(range).until)} (mismos días inmediatamente anteriores). Verde = mejora, rojo = empeora.`
+          : "Sin datos del período anterior para comparar."}
+        {hasNew && " Cliente nuevo = su primera compra en la tienda fue en este período."}
       </div>
 
-      <SalesChart
-        series={series}
-        currency={currency}
+      <Evolution
+        defs={defs}
+        toggleKeys={evolutionKeys}
+        defaultOn={EVOLUTION_DEFAULT}
+        weekly={weeklyKpis}
+        daily={dailyKpis}
         selectedDay={selectedDay}
         onSelectDay={(day) => {
           setSelectedDay(day);
@@ -318,17 +284,12 @@ function Dashboard({ orders, prev, range, abandoned, stock }) {
 function LoadingSkeleton() {
   return (
     <div>
-      <div className="kpi-hero-row">
-        {Array.from({ length: 3 }, (_, i) => (
-          <div key={i} className="kpi-card kpi-hero skeleton" style={{ height: 118 }} />
+      <div className="metric-cards">
+        {Array.from({ length: 8 }, (_, i) => (
+          <div key={i} className="metric-card skeleton" style={{ height: 150 }} />
         ))}
       </div>
-      <div className="kpi-grid kpi-secondary">
-        {Array.from({ length: 6 }, (_, i) => (
-          <div key={i} className="kpi-card skeleton" style={{ height: 84 }} />
-        ))}
-      </div>
-      <div className="card skeleton" style={{ height: 260 }} />
+      <div className="card skeleton" style={{ height: 380 }} />
     </div>
   );
 }

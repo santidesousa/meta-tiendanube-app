@@ -1014,7 +1014,8 @@ table.data-table {
   .filter-row { flex-wrap: nowrap !important; overflow-x: auto; scrollbar-width: none; }
   .filter-pill, .filter-chip { white-space: nowrap; }
   .date-range { flex-wrap: wrap !important; }
-  .date-inputs { margin-left: 0; width: 100%; justify-content: space-between; }
+  .date-inputs { margin-left: 0; width: 100%; justify-content: space-between; flex-wrap: wrap; border-radius: 12px; }
+  .date-inputs input[type="date"] { min-width: 0; }
   .search-input { min-width: 0; width: 100%; }
   .section-tools { width: 100%; }
   .section-tools .search-input { flex: 1; }
@@ -1078,7 +1079,8 @@ table.data-table {
   min-width: 0;
   box-shadow: 0 1px 2px rgba(20, 23, 26, 0.03);
 }
-.metric-card-top { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+/* Si el nombre es largo, la variacion baja a otra linea en vez de salirse */
+.metric-card-top { display: flex; justify-content: space-between; align-items: center; gap: 0.3rem 0.5rem; flex-wrap: wrap; }
 .metric-card-label {
   font-size: 0.7rem;
   font-weight: 600;
@@ -1179,3 +1181,9 @@ table.data-table {
   .evolution-card { padding: 0.9rem; }
   .stat-strip { gap: 0.3rem 1rem; }
 }
+.text-warn { color: var(--warning); }
+.text-warn b { color: var(--warning); }
+/* recharts 3 agrega un contorno de foco al hacer click en el grafico */
+.evolution-chart .recharts-wrapper:focus,
+.evolution-chart .recharts-surface:focus,
+.evolution-chart svg:focus { outline: none; }

@@ -18,8 +18,9 @@ import Funnel from "./Funnel";
 import Breakdowns from "./Breakdowns";
 import Campaigns from "./Campaigns";
 import Ads from "./Ads";
-import MetricCards from "./MetricCards";
-import Evolution from "./Evolution";
+import MetricCards from "../MetricCards";
+import Evolution from "../Evolution";
+import { CARD_KEYS, EVOLUTION_DEFAULT, EVOLUTION_KEYS, metricDefs } from "./metricDefs";
 
 const NOT_CONNECTED = "No conectado con Meta todavia";
 
@@ -86,6 +87,7 @@ function Dashboard({ data, store, range }) {
   const [campaignId, setCampaignId] = useState(null);
   const [openAd, setOpenAd] = useState(null);
   const currency = data.account.currency || "ARS";
+  const defs = useMemo(() => metricDefs(currency), [currency]);
 
   const t = useMemo(() => withRatios(data.totals), [data]);
   const p = useMemo(() => (data.previous ? withRatios(data.previous) : null), [data]);
@@ -117,7 +119,7 @@ function Dashboard({ data, store, range }) {
 
   return (
     <div>
-      <MetricCards current={t} previous={p} series={series} currency={currency} />
+      <MetricCards defs={defs} keys={CARD_KEYS} current={t} previous={p} series={series} />
       <div className="stat-strip">
         <span>
           Alcance <b>{t.reach ? formatCompactNumber(t.reach) : "—"}</b>
@@ -146,7 +148,13 @@ function Dashboard({ data, store, range }) {
         </div>
       )}
 
-      <Evolution weekly={weekly} daily={series} currency={currency} />
+      <Evolution
+        defs={defs}
+        toggleKeys={EVOLUTION_KEYS}
+        defaultOn={EVOLUTION_DEFAULT}
+        weekly={weekly}
+        daily={series}
+      />
 
       {store && (
         <div className="card insight-banner">

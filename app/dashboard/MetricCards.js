@@ -1,25 +1,36 @@
 "use client";
 
 import { Area, AreaChart, ResponsiveContainer, YAxis } from "recharts";
-import { delta, formatPercent } from "../format";
-import { changeTone, metricDefs } from "./metricDefs";
-
-const CARD_KEYS = ["spend", "purchaseValue", "roas", "purchases", "cpa", "aov", "ctr", "cpc"];
+import { delta, formatPercent } from "./format";
 
 /**
- * Tarjetas de KPI de toda la cuenta: valor del periodo, variacion vs el
- * periodo anterior (verde si mejora, rojo si empeora), valor anterior y
- * tendencia diaria en un mini grafico.
- *
- * - current / previous: metricas con ratios (withRatios)
- * - series: serie diaria con ratios, para los sparklines
+ * Definicion de una metrica (ver meta/metricDefs.js y tiendanube/metricDefs.js):
+ *   { label, color, better: "up" | "down" | null, format(v), axis(v), kind?: "bar", rightAxis? }
+ * `better`: "up" si es mejor que suba, "down" si es mejor que baje (costos,
+ * cancelaciones), null si es neutra. Colores en hex: los graficos SVG no
+ * resuelven var(--...).
  */
-export default function MetricCards({ current, previous, series, currency }) {
-  const defs = metricDefs(currency);
 
+/** "good" | "bad" | "neutral" segun la direccion del cambio y la metrica */
+export function changeTone(def, change) {
+  if (!def.better || change === 0) return "neutral";
+  const improved = def.better === "up" ? change > 0 : change < 0;
+  return improved ? "good" : "bad";
+}
+
+/**
+ * Tarjetas de KPI: valor del periodo, variacion vs el periodo anterior
+ * (verde si mejora, rojo si empeora), valor anterior y tendencia en un mini
+ * grafico.
+ *
+ * - defs: { [key]: definicion }, keys: cuales mostrar y en que orden
+ * - current / previous: objetos con esas claves
+ * - series: serie diaria con esas claves, para los sparklines
+ */
+export default function MetricCards({ defs, keys, current, previous, series }) {
   return (
     <div className="metric-cards">
-      {CARD_KEYS.map((key) => {
+      {keys.map((key) => {
         const def = defs[key];
         const value = current[key];
         const prev = previous?.[key];

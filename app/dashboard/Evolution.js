@@ -6,27 +6,29 @@ import {
   CartesianGrid,
   ComposedChart,
   Line,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-import { formatDayLabel } from "../format";
-import { metricDefs } from "./metricDefs";
-
-const TOGGLE_KEYS = ["spend", "purchaseValue", "roas", "purchases", "cpa", "ctr", "cpc", "cpm", "aov"];
-const DEFAULT_ON = ["spend", "purchaseValue", "roas"];
+import { formatDayLabel } from "./format";
 
 /**
- * Evolucion de la cuenta: barras de Gasto e Ingresos (eje $ a la izquierda)
- * y lineas para el resto. El ROAS usa un eje propio visible a la derecha;
- * las demas lineas tienen cada una su escala (oculta) para que se vea su
- * tendencia sin aplastarse, y el tooltip muestra los valores reales.
+ * Grafico "Evolucion": las metricas con kind "bar" van como barras sobre el
+ * eje $ de la izquierda; el resto como lineas. La metrica marcada con
+ * `rightAxis` (ROAS, Pedidos) usa un eje visible a la derecha; las demas
+ * lineas tienen cada una su escala oculta para que se vea su tendencia sin
+ * aplastarse, y el tooltip muestra los valores reales.
  *
- * - weekly / daily: series con ratios (withRatios), cada item con `day`
+ * - defs: definiciones de metricas (ver MetricCards.js)
+ * - toggleKeys: metricas que se pueden prender/apagar; defaultOn: las iniciales
+ * - weekly / daily: series, cada item con `day` (y `until` en las semanales)
+ * - onSelectDay / selectedDay (opcional): click en un dia para filtrar
  */
-export default function Evolution({ weekly, daily, currency }) {
-  const defs = metricDefs(currency);
+export default function Evolution({ defs, toggleKeys, defaultOn, weekly, daily, onSelectDay, selectedDay }) {
+  const DEFAULT_ON = defaultOn;
+  const TOGGLE_KEYS = toggleKeys;
   // Con pocos dias, una barra por semana no dice nada: arrancamos por dia.
   const [grouping, setGrouping] = useState(daily.length > 21 ? "week" : "day");
   const [selected, setSelected] = useState(DEFAULT_ON);
@@ -42,6 +44,9 @@ export default function Evolution({ weekly, daily, currency }) {
 
   const bars = selected.filter((k) => defs[k].kind === "bar");
   const lines = selected.filter((k) => defs[k].kind !== "bar");
+  const rightKey = lines.find((k) => defs[k].rightAxis) || null;
+  const moneyAxis = bars.length ? defs[bars[0]].axis : undefined;
+  const clickable = Boolean(onSelectDay) && grouping === "day";
 
   return (
     <div className="card evolution-card">
@@ -84,7 +89,25 @@ export default function Evolution({ weekly, daily, currency }) {
       {selected.length > 0 && (
         <div className="evolution-chart">
           <ResponsiveContainer width="100%" height={320}>
-            <ComposedChart data={data} margin={{ top: 10, right: 8, bottom: 0, left: 0 }} barGap={4}>
+            <ComposedChart
+              data={data}
+              margin={{ top: 10, right: 8, bottom: 0, left: 0 }}
+              barGap={4}
+              style={clickable ? { cursor: "pointer" } : undefined}
+              onClick={
+                clickable
+                  ? (e) => {
+                      // recharts 2 manda activePayload; recharts 3, activeIndex/activeLabel.
+                      const idx = e?.activeTooltipIndex ?? e?.activeIndex;
+                      const day =
+                        e?.activePayload?.[0]?.payload?.day ??
+                        (idx !== undefined && idx !== null ? data[Number(idx)]?.day : undefined) ??
+                        data.find((d) => d.label === e?.activeLabel)?.day;
+                      if (day) onSelectDay(day === selectedDay ? null : day);
+                    }
+                  : undefined
+              }
+            >
               <CartesianGrid stroke="#efefec" vertical={false} />
               <XAxis
                 dataKey="label"
@@ -98,24 +121,24 @@ export default function Evolution({ weekly, daily, currency }) {
                 yAxisId="money"
                 hide={bars.length === 0}
                 tick={{ fontSize: 11, fill: "#6b7280", fontFamily: "IBM Plex Mono, monospace" }}
-                tickFormatter={defs.spend.axis}
+                tickFormatter={moneyAxis}
                 axisLine={false}
                 tickLine={false}
                 width={84}
               />
               <YAxis
-                yAxisId="roas"
+                yAxisId="right"
                 orientation="right"
-                hide={!lines.includes("roas")}
+                hide={!rightKey}
                 domain={[0, "auto"]}
                 tick={{ fontSize: 11, fill: "#6b7280", fontFamily: "IBM Plex Mono, monospace" }}
-                tickFormatter={defs.roas.axis}
+                tickFormatter={rightKey ? defs[rightKey].axis : undefined}
                 axisLine={false}
                 tickLine={false}
                 width={44}
               />
               {lines
-                .filter((k) => k !== "roas")
+                .filter((k) => k !== rightKey)
                 .map((k) => (
                   <YAxis key={k} yAxisId={k} hide domain={[0, "auto"]} />
                 ))}
@@ -123,6 +146,14 @@ export default function Evolution({ weekly, daily, currency }) {
                 cursor={{ fill: "rgba(20,23,26,0.04)" }}
                 content={<EvolutionTooltip defs={defs} grouping={grouping} keys={selected} />}
               />
+              {clickable && selectedDay && (
+                <ReferenceLine
+                  yAxisId={bars.length ? "money" : "right"}
+                  x={formatDayLabel(selectedDay, true)}
+                  stroke="#16191c"
+                  strokeDasharray="4 3"
+                />
+              )}
               {bars.map((k) => (
                 <Bar
                   key={k}
@@ -137,7 +168,7 @@ export default function Evolution({ weekly, daily, currency }) {
               {lines.map((k) => (
                 <Line
                   key={k}
-                  yAxisId={k === "roas" ? "roas" : k}
+                  yAxisId={k === rightKey ? "right" : k}
                   type="monotone"
                   dataKey={k}
                   stroke={defs[k].color}
@@ -150,6 +181,11 @@ export default function Evolution({ weekly, daily, currency }) {
               ))}
             </ComposedChart>
           </ResponsiveContainer>
+          {clickable && (
+            <div className="section-sub" style={{ textAlign: "center", marginTop: 4 }}>
+              Click en un día para ver sus pedidos
+            </div>
+          )}
           <div className="evolution-legend">
             {selected.map((k) => (
               <span key={k}>
