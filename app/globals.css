@@ -1312,3 +1312,67 @@ table.data-table {
 @media (max-width: 1100px) {
   .ga-top-row { grid-template-columns: 1fr; }
 }
+
+/* =========================================================
+   Creatividades por objetivo
+   ========================================================= */
+.objective-chip {
+  display: inline-block;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.12rem 0.5rem;
+  border-radius: 100px;
+  white-space: nowrap;
+  background: #f1f1ef;
+  color: var(--muted);
+}
+.obj-conversions { background: #e7f5ee; color: #1f8a5f; }
+.obj-dpa { background: #eef0fe; color: #4f46e5; }
+.obj-add_to_cart { background: #fdf2e2; color: #b8660a; }
+.obj-traffic { background: #e6f0fa; color: #2567a8; }
+.obj-other { background: #f1f1ef; color: var(--muted); }
+.objective-on-image { position: absolute; top: 8px; right: 8px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12); }
+
+.rank-badge {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.rank-badge.rank-first {
+  color: #8a5a00;
+  background: #fff4d6;
+  border-radius: 6px;
+  padding: 0.15rem 0.45rem;
+}
+.ad-card.ad-card-winner { border-color: #e8b64c; box-shadow: 0 0 0 1px #e8b64c inset; }
+.metric-highlight .metric-label { color: var(--ink); font-weight: 600; }
+
+.objective-filter { align-items: center; }
+
+.objective-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.75rem;
+}
+.objective-group {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.75rem;
+  min-width: 0;
+}
+.objective-group-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+.leader-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.35rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.leader-row:hover { background: #fafaf8; }
+.leader-row.leader-first { background: #fffaf0; }
+.leader-rank { width: 1.6rem; text-align: center; font-size: 0.78rem; font-weight: 700; color: var(--muted); flex-shrink: 0; }
+.leader-stats { text-align: right; font-size: 0.75rem; white-space: nowrap; }

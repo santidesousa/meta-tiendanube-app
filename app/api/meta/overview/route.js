@@ -5,12 +5,14 @@ import {
   AD_CREATIVE_FIELDS,
   ALLOWED_AD_ACCOUNT_ID,
   getActiveAds,
+  getAllAdsets,
   getAccountInsights,
   getAdAccount,
   getAllCampaigns,
   getObjectsByIds,
 } from "@/lib/meta";
 import { parseInsight } from "@/lib/metaMetrics";
+import { classifyObjective, dominantType } from "@/lib/metaObjectives";
 import { previousRange } from "@/lib/dateRange";
 
 // La mejor imagen disponible de la creatividad: imagen original, portada
@@ -45,7 +47,7 @@ export async function GET(request) {
   try {
     const { token } = requireMeta();
     const range = requireRange(request);
-    const { data, generatedAt } = await cached("meta", ["overview-v2", ALLOWED_AD_ACCOUNT_ID, range.since, range.until], () =>
+    const { data, generatedAt } = await cached("meta", ["overview-v3", ALLOWED_AD_ACCOUNT_ID, range.since, range.until], () =>
       buildOverview(token, range)
     );
     return NextResponse.json({ ...data, generatedAt });
@@ -58,7 +60,7 @@ async function buildOverview(accessToken, range) {
   const accountId = ALLOWED_AD_ACCOUNT_ID;
   const prev = previousRange(range);
 
-  const [account, totals, previous, daily, weekly, campaigns, campaignRows, adRows, activeAds] = await Promise.all([
+  const [account, totals, previous, daily, weekly, campaigns, campaignRows, adRows, activeAds, adsets] = await Promise.all([
     getAdAccount(accessToken, accountId),
     getAccountInsights(accessToken, accountId, range),
     getAccountInsights(accessToken, accountId, prev),
@@ -69,14 +71,40 @@ async function buildOverview(accessToken, range) {
     getAccountInsights(accessToken, accountId, range, { level: "campaign", fields: "campaign_id" }),
     getAccountInsights(accessToken, accountId, range, {
       level: "ad",
-      fields: "ad_id,ad_name,adset_name,campaign_id,campaign_name",
+      fields: "ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name",
     }),
     // Si falla, seguimos sin el listado de activos antes que romper el panel.
     getActiveAds(accessToken, accountId).catch((err) => {
       console.error("No se pudieron traer los anuncios activos", err.message);
       return null;
     }),
+    // Para medir cada anuncio segun su objetivo. Si falla, se usa solo el
+    // objetivo de la campana.
+    getAllAdsets(accessToken, accountId).catch((err) => {
+      console.error("No se pudieron traer los conjuntos de anuncios", err.message);
+      return [];
+    }),
   ]);
+
+  // Tipo de objetivo por conjunto y por campana (la campana toma el tipo
+  // mas comun de sus conjuntos; sin conjuntos, su propio objetivo).
+  const campaignObjective = Object.fromEntries(campaigns.map((c) => [c.id, c.objective]));
+  const adsetType = Object.fromEntries(
+    adsets.map((a) => [
+      a.id,
+      classifyObjective({
+        objective: campaignObjective[a.campaign_id],
+        optimizationGoal: a.optimization_goal,
+        promotedObject: a.promoted_object,
+      }),
+    ])
+  );
+  const campaignType = {};
+  for (const c of campaigns) {
+    const types = adsets.filter((a) => a.campaign_id === c.id).map((a) => adsetType[a.id]);
+    campaignType[c.id] = dominantType(types) || classifyObjective({ objective: c.objective });
+  }
+  const adType = (adsetId, campaignId) => adsetType[adsetId] || campaignType[campaignId] || "other";
 
   const activeById = Object.fromEntries((activeAds || []).map((a) => [a.id, a]));
 
@@ -115,6 +143,7 @@ async function buildOverview(accessToken, range) {
       name: c.name,
       status: c.effective_status || c.status,
       objective: c.objective,
+      objectiveType: campaignType[c.id],
       dailyBudget: c.daily_budget ? parseFloat(c.daily_budget) / 100 : null,
       lifetimeBudget: c.lifetime_budget ? parseFloat(c.lifetime_budget) / 100 : null,
       metrics: campaignMetrics[c.id] || null,
@@ -128,6 +157,7 @@ async function buildOverview(accessToken, range) {
           adsetName: r.adset_name,
           campaignId: r.campaign_id,
           campaignName: r.campaign_name,
+          objectiveType: adType(r.adset_id, r.campaign_id),
           status: obj.effective_status || null,
           image: creativeImage(obj.creative),
           ...creativeText(obj.creative),
@@ -144,6 +174,7 @@ async function buildOverview(accessToken, range) {
           adsetName: a.adset?.name || null,
           campaignId: a.campaign?.id || null,
           campaignName: a.campaign?.name || null,
+          objectiveType: adType(a.adset?.id, a.campaign?.id),
           status: a.effective_status,
           image: creativeImage(a.creative),
           ...creativeText(a.creative),

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { formatMoney, formatPercent } from "../format";
+import { formatMoney, formatNumber, formatPercent } from "../format";
+import { objectiveResult } from "@/lib/metaObjectives";
 import { roasClass } from "./Breakdowns";
 import { CsvButton, downloadCsv } from "../csv";
 
@@ -24,19 +25,6 @@ export function StatusBadge({ status }) {
   return <span className={`badge ${s.cls}`}>{s.label}</span>;
 }
 
-const OBJECTIVES = {
-  OUTCOME_SALES: "Ventas",
-  OUTCOME_TRAFFIC: "Tráfico",
-  OUTCOME_ENGAGEMENT: "Interacción",
-  OUTCOME_AWARENESS: "Reconocimiento",
-  OUTCOME_LEADS: "Clientes potenciales",
-  OUTCOME_APP_PROMOTION: "App",
-  CONVERSIONS: "Conversiones",
-  LINK_CLICKS: "Tráfico",
-  REACH: "Alcance",
-  MESSAGES: "Mensajes",
-};
-
 const FILTERS = [
   { key: "SPEND", label: "Con inversión", test: (c) => c.m.spend > 0 },
   { key: "ACTIVE", label: "Activas", test: (c) => c.status === "ACTIVE" },
@@ -44,10 +32,12 @@ const FILTERS = [
   { key: "ALL", label: "Todas", test: () => true },
 ];
 
+// "Resultados" y su costo dependen del objetivo de cada campana (compras,
+// anadidos al carrito o clics): ver lib/metaObjectives.js.
 const COLUMNS = [
   { key: "spend", label: "Inversión" },
-  { key: "purchases", label: "Compras" },
-  { key: "cpa", label: "CPA", asc: true },
+  { key: "result", label: "Resultados" },
+  { key: "costPerResult", label: "Costo/res.", asc: true },
   { key: "roas", label: "ROAS" },
   { key: "ctr", label: "CTR" },
   { key: "cpm", label: "CPM", asc: true },
@@ -62,11 +52,13 @@ export default function Campaigns({ campaigns, totalSpend, currency, selectedId,
   const [sort, setSort] = useState({ key: "spend", dir: -1 });
 
   const counts = Object.fromEntries(FILTERS.map((f) => [f.key, campaigns.filter(f.test).length]));
+  const value = (c, key) => (key === "result" || key === "costPerResult" ? c.obj[key] : c.m[key]);
   const rows = campaigns
+    .map((c) => ({ ...c, obj: objectiveResult(c.objectiveType, c.m) }))
     .filter(FILTERS.find((f) => f.key === filter).test)
     .sort((a, b) => {
-      const va = a.m[sort.key];
-      const vb = b.m[sort.key];
+      const va = value(a, sort.key);
+      const vb = value(b, sort.key);
       // Los vacios (sin compras => sin CPA) siempre al final.
       if (va === null || va === undefined) return 1;
       if (vb === null || vb === undefined) return -1;
@@ -89,7 +81,10 @@ export default function Campaigns({ campaigns, totalSpend, currency, selectedId,
             downloadCsv("campanas-meta", [
               { label: "Campaña", value: (c) => c.name },
               { label: "Estado", value: (c) => c.status },
-              { label: "Objetivo", value: (c) => OBJECTIVES[c.objective] || c.objective },
+              { label: "Objetivo", value: (c) => c.obj.def.label },
+              { label: "Resultados (según objetivo)", value: (c) => c.obj.result },
+              { label: "Tipo de resultado", value: (c) => c.obj.def.resultLabel },
+              { label: "Costo por resultado", value: (c) => c.obj.costPerResult },
               { label: "Presupuesto diario", value: (c) => c.dailyBudget },
               { label: "Inversión", value: (c) => c.m.spend },
               { label: "Impresiones", value: (c) => c.m.impressions },
@@ -134,7 +129,7 @@ export default function Campaigns({ campaigns, totalSpend, currency, selectedId,
               <tr
                 key={c.id}
                 className={
-                  "row-clickable" + (c.m.noResults ? " row-alert" : "") + (selectedId === c.id ? " row-selected" : "")
+                  "row-clickable" + (c.obj.noResult ? " row-alert" : "") + (selectedId === c.id ? " row-selected" : "")
                 }
                 onClick={() => onSelect(selectedId === c.id ? null : c.id)}
               >
@@ -142,7 +137,7 @@ export default function Campaigns({ campaigns, totalSpend, currency, selectedId,
                   <div className="strong">{c.name}</div>
                   <div className="small muted" style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2 }}>
                     <StatusBadge status={c.status} />
-                    {OBJECTIVES[c.objective] || c.objective}
+                    <span className={`objective-chip obj-${c.obj.type}`}>{c.obj.def.label}</span>
                     {c.dailyBudget ? ` · ${formatMoney(c.dailyBudget, currency)}/día` : ""}
                   </div>
                 </td>
@@ -150,11 +145,12 @@ export default function Campaigns({ campaigns, totalSpend, currency, selectedId,
                   {formatMoney(c.m.spend, currency)}
                   <div className="small muted">{totalSpend ? formatPercent(c.m.spend / totalSpend) : ""}</div>
                 </td>
-                <td className={"mono" + (c.m.noResults ? " text-bad" : "")} style={{ textAlign: "right" }}>
-                  {c.m.purchases}
+                <td className={"mono" + (c.obj.noResult ? " text-bad" : "")} style={{ textAlign: "right" }}>
+                  {formatNumber(c.obj.result)}
+                  <div className="small muted">{c.obj.def.resultLabel.toLowerCase()}</div>
                 </td>
                 <td className="mono" style={{ textAlign: "right" }}>
-                  {c.m.cpa !== null ? formatMoney(c.m.cpa, currency) : "—"}
+                  {c.obj.costPerResult !== null ? formatMoney(c.obj.costPerResult, currency) : "—"}
                 </td>
                 <td className={"mono " + roasClass(c.m.roas)} style={{ textAlign: "right" }}>
                   {c.m.roas !== null ? `${c.m.roas.toFixed(2)}x` : "—"}

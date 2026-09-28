@@ -20,6 +20,7 @@ import { computeSummary, dailySeries, daysBetween, previousRange, topProducts } 
 import { emptyMetrics, withRatios } from "@/lib/metaMetrics";
 import { addDays } from "@/lib/dateRange";
 import { computeAlerts } from "@/lib/alerts";
+import { OBJECTIVE_ORDER, formatResult, rankByObjective } from "@/lib/metaObjectives";
 
 const MARGIN_KEY = "tr_margin";
 
@@ -138,7 +139,10 @@ function HomeContent({ range, tn, prevTn, meta, abandoned, stock, margin, defaul
   const products = useMemo(() => (hasTn ? topProducts(orders) : []), [hasTn, orders]);
   const t = useMemo(() => (hasMeta ? withRatios(meta.totals) : null), [hasMeta, meta]);
   const pm = useMemo(() => (hasMeta && meta.previous ? withRatios(meta.previous) : null), [hasMeta, meta]);
-  const ads = useMemo(() => (hasMeta ? meta.ads.map((a) => ({ ...a, m: withRatios(a.metrics) })) : []), [hasMeta, meta]);
+  const ads = useMemo(
+    () => (hasMeta ? rankByObjective(meta.ads.map((a) => ({ ...a, m: withRatios(a.metrics) }))) : []),
+    [hasMeta, meta]
+  );
 
   // Serie diaria combinada: facturacion (Tiendanube) + inversion (Meta).
   const series = useMemo(() => {
@@ -171,10 +175,8 @@ function HomeContent({ range, tn, prevTn, meta, abandoned, stock, margin, defaul
   const prevCac = prevTn?.newCustomers && prevSpend ? prevSpend / prevTn.newCustomers : null;
   const attributed = store && t?.hasPurchaseValue && revenue ? t.purchaseValue / revenue : null;
 
-  const topAds = ads
-    .filter((a) => a.m.purchases > 0 && a.m.roas !== null)
-    .sort((a, b) => b.m.roas - a.m.roas)
-    .slice(0, 5);
+  // La creatividad ganadora de cada objetivo (medida por su propio criterio).
+  const topAds = OBJECTIVE_ORDER.map((type) => ads.find((a) => a.obj.type === type && a.obj.rank === 1)).filter(Boolean);
 
   return (
     <div>
@@ -293,18 +295,21 @@ function HomeContent({ range, tn, prevTn, meta, abandoned, stock, margin, defaul
         </div>
         <div className="card">
           <div className="section-head">
-            <h2>Anuncios con mejor ROAS</h2>
+            <h2>Mejor creatividad por objetivo</h2>
             <Link href={`/dashboard/meta?range=${range.key}${range.key === "custom" ? `&since=${range.since}&until=${range.until}` : ""}`} className="link-btn no-print">
               Ver todos →
             </Link>
           </div>
-          {topAds.length === 0 && <div className="empty-state">Sin anuncios con compras en el período.</div>}
+          {topAds.length === 0 && <div className="empty-state">Sin anuncios con resultados en el período.</div>}
           {topAds.map((a) => (
             <div key={a.id} className="mini-row">
               <Thumb src={a.image} alt={a.name} size={36} />
-              <span className="ellipsis" style={{ flex: 1 }}>{a.name}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="ellipsis">{a.name}</div>
+                <span className={`objective-chip obj-${a.obj.type}`}>{a.obj.def.label}</span>
+              </div>
               <span className="mono small">
-                {a.m.purchases} compras · <b className="text-good">{a.m.roas.toFixed(2)}x</b>
+                <b className="text-good">{formatResult(a.obj, formatNumber)}</b>
               </span>
             </div>
           ))}

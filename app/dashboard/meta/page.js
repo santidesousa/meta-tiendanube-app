@@ -17,7 +17,8 @@ import { addDays } from "@/lib/dateRange";
 import Funnel from "./Funnel";
 import Breakdowns from "./Breakdowns";
 import Campaigns from "./Campaigns";
-import Ads from "./Ads";
+import Ads, { ObjectiveLeaders } from "./Ads";
+import { rankByObjective } from "@/lib/metaObjectives";
 import MetricCards from "../MetricCards";
 import Evolution from "../Evolution";
 import { CARD_KEYS, EVOLUTION_DEFAULT, EVOLUTION_KEYS, metricDefs } from "./metricDefs";
@@ -95,7 +96,8 @@ function Dashboard({ data, store, range }) {
     () => data.campaigns.map((c) => ({ ...c, m: withRatios(c.metrics || emptyMetrics()) })),
     [data]
   );
-  const ads = useMemo(() => data.ads.map((a) => ({ ...a, m: withRatios(a.metrics) })), [data]);
+  // Cada anuncio con su resultado segun el objetivo y su posicion en el.
+  const ads = useMemo(() => rankByObjective(data.ads.map((a) => ({ ...a, m: withRatios(a.metrics) }))), [data]);
 
   // Serie diaria completa (Meta omite los dias sin actividad). Los ratios
   // quedan en null cuando no hay base (ej. ROAS sin gasto) para no dibujar
@@ -110,8 +112,10 @@ function Dashboard({ data, store, range }) {
   }, [data, range]);
   const weekly = useMemo(() => (data.weekly || []).map((w) => ({ ...w, ...withRatios(w) })), [data]);
 
-  const alertAds = ads.filter((a) => a.m.noResults).sort((a, b) => b.m.spend - a.m.spend);
-  const fatiguedAds = ads.filter((a) => a.m.fatigue && !a.m.noResults).sort((a, b) => b.m.frequency - a.m.frequency);
+  // "Sin resultados" segun el objetivo: un anuncio de trafico con clics
+  // cumple su objetivo aunque no venda.
+  const alertAds = ads.filter((a) => a.obj.noResult).sort((a, b) => b.m.spend - a.m.spend);
+  const fatiguedAds = ads.filter((a) => a.m.fatigue && !a.obj.noResult).sort((a, b) => b.m.frequency - a.m.frequency);
   const alertSpend = alertAds.reduce((s, a) => s + a.m.spend, 0);
   const selectedCampaign = campaigns.find((c) => c.id === campaignId) || null;
 
@@ -181,11 +185,12 @@ function Dashboard({ data, store, range }) {
           <div className="section-head" style={{ marginBottom: 8 }}>
             <div>
               <h2>
-                ⚠ {alertAds.length} {alertAds.length === 1 ? "anuncio gastó" : "anuncios gastaron"} sin vender
+                ⚠ {alertAds.length} {alertAds.length === 1 ? "anuncio gastó" : "anuncios gastaron"} sin resultados
               </h2>
               <div className="section-sub">
                 {formatMoney(alertSpend, currency)} invertidos ({t.spend ? formatPercent(alertSpend / t.spend) : "—"} del
-                total) sin ninguna compra en el período. Click para ver el detalle.
+                total) sin ningún resultado de su objetivo en el período (compras, añadidos al carrito o clics,
+                según corresponda). Click para ver el detalle.
               </div>
             </div>
           </div>
@@ -195,7 +200,9 @@ function Dashboard({ data, store, range }) {
                 <Thumb src={a.image} alt={a.name} size={40} />
                 <div style={{ minWidth: 0 }}>
                   <div className="small strong ellipsis">{a.name}</div>
-                  <div className="small mono text-bad">{formatMoney(a.m.spend, currency)}</div>
+                  <div className="small mono text-bad">
+                    {formatMoney(a.m.spend, currency)} · 0 {a.obj.def.resultLabel.toLowerCase()}
+                  </div>
                 </div>
               </div>
             ))}
@@ -239,6 +246,8 @@ function Dashboard({ data, store, range }) {
         <h2>Detalle: campañas y anuncios</h2>
         <div className="section-sub">Todo lo de abajo corresponde al período elegido.</div>
       </div>
+
+      <ObjectiveLeaders ads={ads} currency={currency} onOpenAd={setOpenAd} />
 
       <Campaigns
         campaigns={campaigns}
