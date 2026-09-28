@@ -13,7 +13,7 @@ export function metricDefs(currency) {
     roas: { label: "ROAS", color: "#e8910c", better: "up", format: (v) => `${v.toFixed(2)}x`, axis: (v) => `${v.toFixed(1)}x` },
     purchases: { label: "Compras", color: "#6366f1", better: "up", format: formatNumber, axis: formatCompactNumber },
     cpa: { label: "CPA", color: "#e0445a", better: "down", format: money, axis: compactMoney },
-    aov: { label: "Ticket promedio", short: "AOV", color: "#0f9f8f", better: "up", format: money, axis: compactMoney },
+    aov: { label: "Ticket promedio", color: "#0f9f8f", better: "up", format: money, axis: compactMoney },
     ctr: { label: "CTR", color: "#2f80d1", better: "up", format: (v) => formatPercent(v, 2), axis: (v) => formatPercent(v, 1) },
     cpc: { label: "CPC", color: "#d9534f", better: "down", format: money, axis: compactMoney },
     cpm: { label: "CPM", color: "#9b5de5", better: "down", format: money, axis: compactMoney },
