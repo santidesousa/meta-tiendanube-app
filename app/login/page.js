@@ -7,8 +7,7 @@ export default function LoginPage({ searchParams }) {
   return (
     <main className="login-shell">
       <div className="login-card">
-        <div className="brand-mark brand-mark-lg">TR</div>
-        <h1>Tout Revient</h1>
+        <img src="/tout-revient-logo.png" alt="Tout Revient" className="login-logo" width={320} height={69} />
         <p className="muted" style={{ marginTop: 0 }}>Panel de performance</p>
         {searchParams?.link === "invalido" && (
           <div className="alert-note" style={{ marginBottom: 8 }}>

@@ -24,11 +24,8 @@ export default function Sidebar({ role, agencyName }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
-        <div className="brand-mark">TR</div>
-        <div>
-          <div>Tout Revient</div>
-          <div className="sidebar-brand-sub">{agencyName ? `Performance · ${agencyName}` : "Performance"}</div>
-        </div>
+        <img src="/tout-revient-logo.png" alt="Tout Revient" className="brand-logo" width={320} height={69} />
+        <div className="sidebar-brand-sub">{agencyName ? `Performance · ${agencyName}` : "Performance"}</div>
       </div>
       <nav className="sidebar-nav">
         {LINKS.filter((l) => !l.adminOnly || role === "admin").map((link) => (

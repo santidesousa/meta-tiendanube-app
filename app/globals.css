@@ -1289,3 +1289,19 @@ table.data-table {
 @media print {
   .range-popover { display: none; }
 }
+
+/* Logo de Tout Revient (PNG negro con fondo transparente) */
+.sidebar-brand { flex-direction: column; align-items: flex-start; gap: 0.4rem; }
+.brand-logo {
+  width: 150px;
+  height: auto;
+  display: block;
+  /* En el menu oscuro se muestra en blanco */
+  filter: brightness(0) invert(1);
+}
+.login-logo { width: 200px; height: auto; display: block; margin: 0.3rem 0 0.6rem; }
+@media (max-width: 900px) {
+  .sidebar-brand { flex-direction: row; align-items: center; }
+  .brand-logo { width: 92px; }
+  .sidebar-brand .sidebar-brand-sub { display: none; }
+}

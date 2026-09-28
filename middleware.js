@@ -35,6 +35,7 @@ export async function middleware(request) {
 }
 
 export const config = {
-  // Todo menos los assets de Next y los iconos.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png).*)"],
+  // Todo menos los assets de Next y las imagenes publicas (el logo se ve
+  // tambien en la pantalla de login, antes de iniciar sesion).
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|svg|webp|ico)$).*)"],
 };
