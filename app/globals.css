@@ -764,7 +764,8 @@ table.data-table {
 .ad-campaign { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
 .ad-metrics {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* La inversion es el numero mas largo: le damos mas ancho */
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.8fr) minmax(0, 1fr);
   gap: 0.4rem 0.5rem;
   margin-top: 0.6rem;
 }
@@ -1058,4 +1059,123 @@ table.data-table {
   border-radius: 8px;
   padding: 0.9rem;
   margin-top: 0.5rem;
+}
+
+/* =========================================================
+   Meta Ads: tarjetas con sparkline y evolucion
+   ========================================================= */
+.metric-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0.5rem 0 0.9rem;
+}
+.metric-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1rem 1.1rem 0.4rem;
+  min-width: 0;
+  box-shadow: 0 1px 2px rgba(20, 23, 26, 0.03);
+}
+.metric-card-top { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+.metric-card-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.metric-card-value {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(1.15rem, 1.9vw, 1.5rem);
+  font-weight: 600;
+  margin-top: 0.45rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.metric-card-prev {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin-top: 0.15rem;
+}
+.sparkline { margin: 0.4rem -0.3rem 0; }
+.delta-chip {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.delta-good { background: var(--success-soft); color: var(--success); }
+.delta-bad { background: var(--danger-soft); color: var(--danger); }
+.delta-neutral { background: #f1f1ef; color: var(--muted); }
+
+.stat-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.4rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin: 0 0 0.4rem;
+}
+.stat-strip b { color: var(--ink); font-family: "IBM Plex Mono", ui-monospace, monospace; font-weight: 600; margin-left: 0.2rem; }
+
+.eyebrow {
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.evolution-card { padding: 1.3rem 1.3rem 1rem; }
+.metric-toggles { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1rem; }
+.metric-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--border);
+  background: #f4f4f1;
+  color: var(--muted);
+  border-radius: 100px;
+  padding: 0.3rem 0.75rem;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.metric-toggle i { width: 7px; height: 7px; border-radius: 100px; display: inline-block; }
+.metric-toggle.on { color: #fff; }
+.evolution-chart { margin: 0 -0.4rem; }
+.evolution-legend {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 0.4rem;
+}
+.evolution-legend span, .tt-row { display: inline-flex; align-items: center; gap: 0.35rem; }
+.evolution-legend i, .tt-row i { width: 8px; height: 8px; border-radius: 100px; display: inline-block; }
+.tt-row { display: flex; gap: 0.45rem; font-size: 0.78rem; }
+.tt-row span { flex: 1; font-family: "Inter", sans-serif; color: #d6d8d6; }
+.tt-row b { font-weight: 600; }
+
+.detail-heading { margin: 1.8rem 0 0.8rem; padding-top: 1.2rem; border-top: 1px solid var(--border); }
+
+@media (max-width: 1100px) {
+  .metric-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .metric-cards { gap: 0.5rem; }
+  .metric-card { padding: 0.8rem 0.8rem 0.3rem; border-radius: 12px; }
+  .metric-card-value { font-size: 1.05rem; }
+  .delta-chip { font-size: 0.6rem; padding: 0.1rem 0.3rem; }
+  .metric-card-prev { font-size: 0.62rem; }
+  .evolution-card { padding: 0.9rem; }
+  .stat-strip { gap: 0.3rem 1rem; }
 }

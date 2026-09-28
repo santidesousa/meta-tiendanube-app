@@ -3,18 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDateRange } from "../DateRangePicker";
 import PageHeader from "../PageHeader";
-import BarChart from "../BarChart";
-import Kpi from "../Kpi";
 import Thumb from "../Thumb";
 import { fetchJson } from "../api";
 import { ConnectionHint } from "../RoleContext";
 import {
-  delta,
-  formatCompactMoney,
   formatCompactNumber,
   formatDayLabel,
   formatMoney,
-  formatNumber,
   formatPercent,
 } from "../format";
 import { FATIGUE_FREQUENCY, emptyMetrics, withRatios } from "@/lib/metaMetrics";
@@ -23,6 +18,8 @@ import Funnel from "./Funnel";
 import Breakdowns from "./Breakdowns";
 import Campaigns from "./Campaigns";
 import Ads from "./Ads";
+import MetricCards from "./MetricCards";
+import Evolution from "./Evolution";
 
 const NOT_CONNECTED = "No conectado con Meta todavia";
 
@@ -98,88 +95,58 @@ function Dashboard({ data, store, range }) {
   );
   const ads = useMemo(() => data.ads.map((a) => ({ ...a, m: withRatios(a.metrics) })), [data]);
 
-  // Serie diaria completa (Meta omite los dias sin actividad).
+  // Serie diaria completa (Meta omite los dias sin actividad). Los ratios
+  // quedan en null cuando no hay base (ej. ROAS sin gasto) para no dibujar
+  // ceros que no existen.
   const series = useMemo(() => {
     const byDay = Object.fromEntries(data.daily.map((d) => [d.day, d]));
     const out = [];
     for (let day = range.since; day <= range.until; day = addDays(day, 1)) {
-      const m = withRatios(byDay[day] || emptyMetrics());
-      out.push({ day, ...m, roas: m.roas || 0, cpa: m.cpa || 0 });
+      out.push({ day, ...withRatios(byDay[day] || emptyMetrics()) });
     }
     return out;
   }, [data, range]);
+  const weekly = useMemo(() => (data.weekly || []).map((w) => ({ ...w, ...withRatios(w) })), [data]);
 
   const alertAds = ads.filter((a) => a.m.noResults).sort((a, b) => b.m.spend - a.m.spend);
   const fatiguedAds = ads.filter((a) => a.m.fatigue && !a.m.noResults).sort((a, b) => b.m.frequency - a.m.frequency);
   const alertSpend = alertAds.reduce((s, a) => s + a.m.spend, 0);
   const selectedCampaign = campaigns.find((c) => c.id === campaignId) || null;
 
-  const d = (key) => (p ? delta(t[key], p[key]) : null);
   const blendedRoas = store && t.spend ? store.revenue / t.spend : null;
 
   return (
     <div>
-      <div className="kpi-hero-row kpi-hero-4">
-        <Kpi
-          hero
-          label="Inversión"
-          value={formatCompactMoney(t.spend, currency)}
-          title={formatMoney(t.spend, currency)}
-          change={d("spend")}
-          sub={`${formatMoney(t.spend / series.length, currency)} por día`}
-        />
-        <Kpi hero label="Compras" value={formatNumber(t.purchases)} change={d("purchases")} sub="Atribuidas por Meta" />
-        <Kpi
-          hero
-          label="ROAS"
-          value={t.roas !== null ? `${t.roas.toFixed(2)}x` : "—"}
-          change={d("roas")}
-          tone={t.roas !== null && t.roas < 1 ? "danger" : undefined}
-          sub={t.hasPurchaseValue ? `${formatCompactMoney(t.purchaseValue, currency)} en compras` : null}
-        />
-        <Kpi
-          hero
-          label="Costo por compra"
-          value={t.cpa !== null ? formatMoney(t.cpa, currency) : "—"}
-          change={d("cpa")}
-          inverse
-        />
-      </div>
-
-      <div className="kpi-grid kpi-secondary">
-        <Kpi
-          label="CTR (enlace)"
-          value={formatPercent(t.ctr, 2)}
-          change={d("ctr")}
-          sub={`${formatCompactNumber(t.linkClicks)} clicks`}
-        />
-        <Kpi label="CPC (enlace)" value={t.cpc !== null ? formatMoney(t.cpc, currency) : "—"} change={d("cpc")} inverse />
-        <Kpi
-          label="CPM"
-          value={t.cpm !== null ? formatMoney(t.cpm, currency) : "—"}
-          change={d("cpm")}
-          inverse
-          sub={`${formatCompactNumber(t.impressions)} impresiones`}
-        />
-        <Kpi
-          label="Alcance"
-          value={t.reach ? formatCompactNumber(t.reach) : "—"}
-          title={t.reach ? formatNumber(t.reach) : undefined}
-          sub={t.frequency ? `Frecuencia ${t.frequency.toFixed(2)}` : null}
-          tone={t.frequency >= FATIGUE_FREQUENCY ? "warning" : undefined}
-        />
-        <Kpi
-          label="Conversión (click → compra)"
-          value={t.convRate !== null ? formatPercent(t.convRate, 2) : "—"}
-          change={d("convRate")}
-        />
+      <MetricCards current={t} previous={p} series={series} currency={currency} />
+      <div className="stat-strip">
+        <span>
+          Alcance <b>{t.reach ? formatCompactNumber(t.reach) : "—"}</b>
+        </span>
+        <span className={t.frequency >= FATIGUE_FREQUENCY ? "text-bad" : ""}>
+          Frecuencia <b>{t.frequency ? t.frequency.toFixed(2) : "—"}</b>
+        </span>
+        <span>
+          Impresiones <b>{formatCompactNumber(t.impressions)}</b>
+        </span>
+        <span>
+          Clicks en el enlace <b>{formatCompactNumber(t.linkClicks)}</b>
+        </span>
+        <span>
+          CPM <b>{t.cpm !== null ? formatMoney(t.cpm, currency) : "—"}</b>
+        </span>
+        <span>
+          Conversión click → compra <b>{t.convRate !== null ? formatPercent(t.convRate, 2) : "—"}</b>
+        </span>
       </div>
       {p && (
-        <div className="section-sub" style={{ marginTop: -18, marginBottom: 20 }}>
-          Variaciones vs. el período anterior ({formatDayLabel(data.previousRange.since)} –{" "}
-          {formatDayLabel(data.previousRange.until)}). En CPA, CPC y CPM bajar es bueno.
+        <div className="section-sub" style={{ marginBottom: 16 }}>
+          Variaciones vs. {formatDayLabel(data.previousRange.since)} – {formatDayLabel(data.previousRange.until)}{" "}
+          (mismos días inmediatamente anteriores). Verde = mejora, rojo = empeora. CTR y CPC: sobre clicks en el
+          enlace.
         </div>
       )}
+
+      <Evolution weekly={weekly} daily={series} currency={currency} />
 
       {store && (
         <div className="card insight-banner">
@@ -255,42 +222,14 @@ function Dashboard({ data, store, range }) {
         </div>
       )}
 
-      <BarChart
-        title="Evolución diaria"
-        series={series}
-        metrics={[
-          { key: "spend", label: "Inversión", format: (v) => formatMoney(v, currency) },
-          { key: "purchases", label: "Compras", format: (v) => v.toLocaleString("es-AR") },
-          { key: "purchaseValue", label: "Valor", format: (v) => formatMoney(v, currency) },
-          { key: "roas", label: "ROAS", format: (v) => `${v.toFixed(2)}x` },
-          { key: "cpa", label: "CPA", format: (v) => formatMoney(v, currency) },
-        ]}
-        summary={(m) => {
-          if (m.key === "roas" || m.key === "cpa") {
-            const withData = series.filter((s) => s[m.key] > 0);
-            if (!withData.length) return "Sin compras en el período";
-            const best = withData.reduce((a, b) =>
-              m.key === "roas" ? (b.roas > a.roas ? b : a) : b.cpa < a.cpa ? b : a
-            );
-            return `Mejor día: ${formatDayLabel(best.day)} (${m.format(best[m.key])})`;
-          }
-          const total = series.reduce((s, x) => s + x[m.key], 0);
-          return `Total ${m.format(total)} · promedio diario ${m.format(total / series.length)}`;
-        }}
-        renderTooltip={(x) => (
-          <>
-            <div>{formatMoney(x.spend, currency)} invertidos</div>
-            <div className="tt-muted">
-              {x.purchases} compras{x.cpa ? ` · CPA ${formatMoney(x.cpa, currency)}` : ""}
-              {x.roas ? ` · ROAS ${x.roas.toFixed(2)}x` : ""}
-            </div>
-          </>
-        )}
-      />
-
       <div className="two-col two-col-even">
         <Funnel metrics={t} />
         <Breakdowns range={range} currency={currency} />
+      </div>
+
+      <div className="detail-heading">
+        <h2>Detalle: campañas y anuncios</h2>
+        <div className="section-sub">Todo lo de abajo corresponde al período elegido.</div>
       </div>
 
       <Campaigns
@@ -319,17 +258,12 @@ function Dashboard({ data, store, range }) {
 function LoadingSkeleton() {
   return (
     <div>
-      <div className="kpi-hero-row kpi-hero-4">
-        {Array.from({ length: 4 }, (_, i) => (
-          <div key={i} className="kpi-card kpi-hero skeleton" style={{ height: 118 }} />
+      <div className="metric-cards">
+        {Array.from({ length: 8 }, (_, i) => (
+          <div key={i} className="metric-card skeleton" style={{ height: 150 }} />
         ))}
       </div>
-      <div className="kpi-grid kpi-secondary">
-        {Array.from({ length: 5 }, (_, i) => (
-          <div key={i} className="kpi-card skeleton" style={{ height: 84 }} />
-        ))}
-      </div>
-      <div className="card skeleton" style={{ height: 260 }} />
+      <div className="card skeleton" style={{ height: 380 }} />
     </div>
   );
 }

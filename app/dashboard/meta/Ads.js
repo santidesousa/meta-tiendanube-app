@@ -16,7 +16,10 @@ const SORTS = [
 ];
 
 const FILTERS = [
-  { key: "ALL", label: "Todos", test: () => true },
+  // Circulando hoy: anuncio, conjunto y campana activos (estado efectivo),
+  // tenga o no ventas o impresiones en el periodo elegido.
+  { key: "ACTIVE", label: "Activos ahora", test: (a) => a.status === "ACTIVE" },
+  { key: "ALL", label: "Con actividad", test: (a) => a.m.impressions > 0 || a.m.spend > 0 },
   { key: "SALES", label: "Con ventas", test: (a) => a.m.purchases > 0 },
   { key: "ALERT", label: "Gastan sin vender", test: (a) => a.m.noResults },
   { key: "FATIGUE", label: "Con fatiga", test: (a) => a.m.fatigue },
@@ -47,7 +50,8 @@ function exportAds(rows) {
  */
 export default function Ads({ ads, currency, campaignFilter, onClearCampaign, openAd, onOpenAd }) {
   const [sortKey, setSortKey] = useState("spend");
-  const [filter, setFilter] = useState("ALL");
+  // Arranca mostrando lo que esta circulando hoy (si hay algo activo).
+  const [filter, setFilter] = useState(() => (ads.some((a) => a.status === "ACTIVE") ? "ACTIVE" : "ALL"));
   const [limit, setLimit] = useState(12);
 
   useEffect(() => setLimit(12), [campaignFilter, filter, sortKey]);
@@ -71,7 +75,10 @@ export default function Ads({ ads, currency, campaignFilter, onClearCampaign, op
         <div>
           <h2>Anuncios</h2>
           <div className="section-sub">
-            {rows.length} anuncios con actividad en el período · click para ver el detalle
+            {filter === "ACTIVE"
+              ? `${rows.length} anuncios circulando hoy (tengan o no ventas) · métricas del período elegido`
+              : `${rows.length} anuncios con actividad en el período`}{" "}
+            · click para ver el detalle
           </div>
         </div>
         <div className="section-tools">
