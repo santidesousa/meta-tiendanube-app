@@ -12,6 +12,10 @@ function matches(pathname, prefixes) {
 }
 
 export async function middleware(request) {
+  // Interruptor temporal: con TEMP_DISABLE_AUTH="true" el panel queda abierto
+  // sin login. Cualquier otro valor (o sin definir) mantiene la proteccion.
+  if (process.env.TEMP_DISABLE_AUTH === "true") return NextResponse.next();
+
   const { pathname, search } = request.nextUrl;
   if (matches(pathname, PUBLIC)) return NextResponse.next();
 
